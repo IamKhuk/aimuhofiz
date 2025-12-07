@@ -1,0 +1,62 @@
+{
+  "high_risk": [
+    "karta",
+    "cvv",
+    "pin",
+    "kod",
+    "parol",
+    "password",
+    "sms",
+    "click",
+    "payme",
+    "bank",
+    "hisob",
+    "счёт",
+    "карта",
+    "код",
+    "пароль",
+    "блок",
+    "xavfsizlik"
+  ],
+  "urgency": [
+    "tezda",
+    "shoshiling",
+    "hoziroq",
+    "vaqt yo'q",
+    "срочно",
+    "быстро",
+    "немедленно",
+    "kechikmasdan"
+  ],
+  "threat": [
+    "sudga",
+    "politsiya",
+    "jarima",
+    "qamoq",
+    "bloklangan",
+    "полиция",
+    "штраф",
+    "заблокирован",
+    "jinoiy"
+  ],
+  "prize": [
+    "yutdingiz",
+    "sovrin",
+    "loteriya",
+    "million",
+    "bepul",
+    "выиграли",
+    "приз",
+    "лотерея",
+    "g'olib"
+  ],
+  "secrecy": [
+    "aytmang",
+    "sir",
+    "faqat siz",
+    "hech kimga",
+    "никому",
+    "секрет",
+    "только вы"
+  ]
+}

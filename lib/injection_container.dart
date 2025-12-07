@@ -1,0 +1,34 @@
+import 'package:get_it/get_it.dart';
+import 'features/fraud_detection/data/datasources/local_data_source.dart';
+import 'features/fraud_detection/data/datasources/model_data_source.dart';
+import 'features/fraud_detection/data/repositories/fraud_detection_repository_impl.dart';
+import 'features/fraud_detection/domain/repositories/fraud_detection_repository.dart';
+import 'features/fraud_detection/domain/usecases/detect_fraud.dart';
+import 'features/fraud_detection/domain/usecases/get_recent_detections.dart';
+import 'features/fraud_detection/presentation/bloc/detection_bloc.dart';
+
+final sl = GetIt.instance;
+
+Future<void> init() async {
+  // Bloc
+  sl.registerFactory(() => DetectionBloc(
+        detectFraud: sl(),
+        getRecentDetections: sl(),
+      ));
+
+  // Use cases
+  sl.registerLazySingleton(() => DetectFraud(sl()));
+  sl.registerLazySingleton(() => GetRecentDetections(sl()));
+
+  // Repository
+  sl.registerLazySingleton<FraudDetectionRepository>(
+    () => FraudDetectionRepositoryImpl(
+      localDataSource: sl(),
+      modelDataSource: sl(),
+    ),
+  );
+
+  // Data sources
+  sl.registerLazySingleton(() => AppDatabase());
+  sl.registerLazySingleton<ModelDataSource>(() => ModelDataSourceImpl());
+}
