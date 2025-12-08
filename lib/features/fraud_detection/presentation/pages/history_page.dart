@@ -26,125 +26,108 @@ class HistoryPageContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<DetectionBloc, DetectionState>(
       builder: (context, state) {
-        if (state is DetectionsHistoryLoading) {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
+        // Get database detections (empty if loading/initial/failure)
+        List<Detection> dbDetections = [];
+        bool isLoading = false;
+
+        if (state is DetectionsHistoryLoaded) {
+          dbDetections = state.detections;
+        } else if (state is DetectionsHistoryLoading || state is DetectionInitial) {
+          isLoading = true;
         }
 
-        if (state is DetectionsHistoryFailure) {
+        // Always show sample data immediately - don't wait for database
+        final sampleDetections = SampleThreatData.allThreats
+            .map((threat) => threat.detection)
+            .toList();
+
+        // Combine with database detections (if any)
+        final allDetections = [...dbDetections, ...sampleDetections];
+
+        // Sort by timestamp (newest first)
+        allDetections.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+        if (allDetections.isEmpty && !isLoading) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
-                  Icons.error_outline,
+                  Icons.history,
                   size: 64,
                   color: Colors.grey[400],
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  "Qo'ng'iroqlar tarixini yuklab bo‘lmadi",
-                  style: Theme.of(context).textTheme.titleLarge,
+                  "Qo'ng'iroqlar aniqlanmadi",
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  state.message,
+                  "Qo'ng'iroqlaringiz tarixi shu yerda paydo bo'ladi",
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Colors.grey[600],
                       ),
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    context.read<DetectionBloc>().add(
-                          const LoadDetectionsHistoryEvent(),
-                        );
-                  },
-                  icon: const Icon(Icons.refresh),
-                  label: const Text("Qatradan urunib ko'rish"),
                 ),
               ],
             ),
           );
         }
 
-        if (state is DetectionsHistoryLoaded) {
-          final detections = state.detections;
-          
-          // Extract Detection objects from sample threats
-          final sampleDetections = SampleThreatData.allThreats
-              .map((threat) => threat.detection)
-              .toList();
-          
-          // Combine existing detections with sample threats
-          final allDetections = [...detections, ...sampleDetections];
-          
-          // Sort by timestamp (newest first)
-          allDetections.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-
-          if (allDetections.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.history,
-                    size: 64,
-                    color: Colors.grey[400],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    "Qo'ng'iroqlar aniqlanmadi",
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "Qo'ng'iroqlaringiz tarixi shu yerda paydo bo'ladi",
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey[600],
-                        ),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          return RefreshIndicator(
-            onRefresh: () async {
-              context.read<DetectionBloc>().add(
-                    const LoadDetectionsHistoryEvent(),
-                  );
-              // Wait a bit for the state to update
-              await Future.delayed(const Duration(milliseconds: 500));
-            },
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: allDetections.length,
-              itemBuilder: (context, index) {
-                final detection = allDetections[index];
-                return ThreatCardWidget(
-                  detection: detection,
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => ThreatDetailsPage(
-                          detection: detection,
-                        ),
-                      ),
-                    );
-                  },
+        // Show list immediately with sample data, database data will merge in when ready
+        return RefreshIndicator(
+          onRefresh: () async {
+            context.read<DetectionBloc>().add(
+                  const LoadDetectionsHistoryEvent(),
                 );
-              },
-            ),
-          );
-        }
-
-        // Initial state
-        return const Center(
-          child: CircularProgressIndicator(),
+            await Future.delayed(const Duration(milliseconds: 500));
+          },
+          child: Stack(
+            children: [
+              ListView.builder(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                itemCount: allDetections.length,
+                itemBuilder: (context, index) {
+                  final detection = allDetections[index];
+                  return ThreatCardWidget(
+                    detection: detection,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => ThreatDetailsPage(
+                            detection: detection,
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+              // Show small loading indicator if database is still loading
+              if (isLoading)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         );
       },
     );

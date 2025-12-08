@@ -62,24 +62,33 @@ class ThreatOverlayService {
     required FraudResult fraudResult,
     required String phoneNumber,
   }) async {
+    print('ThreatOverlayService.showThreatOverlay called');
+    print('  - Score: ${fraudResult.score}');
+    print('  - Phone: $phoneNumber');
+
     _currentThreat = fraudResult;
     _currentPhoneNumber = phoneNumber;
 
     // Store threat data for navigation
     await _storeThreatData(fraudResult, phoneNumber);
+    print('  - Threat data stored');
 
     // Play sound alert based on threat score
     // Only play if score indicates a threat (>= 30)
     if (fraudResult.score >= 30) {
       final soundService = SoundAlertService();
       await soundService.playFraudAlert(fraudResult.score);
+      print('  - Sound alert played');
     }
 
     // Try to show system overlay (Android)
+    print('  - Attempting to show system overlay...');
     await _showSystemOverlay(fraudResult);
 
     // Also show notification as fallback
+    print('  - Showing notification...');
     await _showNotification(fraudResult, phoneNumber);
+    print('ThreatOverlayService.showThreatOverlay complete');
   }
 
   /// Store threat data for navigation
@@ -96,32 +105,52 @@ class ThreatOverlayService {
   }
 
   /// Show system overlay (Android only)
+  /// IMPORTANT: Never request permission during a call - only check if granted
   static Future<void> _showSystemOverlay(FraudResult fraudResult) async {
     try {
-      // Check if overlay permission is granted
+      print('_showSystemOverlay: Checking permission...');
+
+      // Check if overlay permission is granted - DO NOT request during call
       final hasPermission = await overlay.FlutterOverlayWindow.isPermissionGranted();
+      print('_showSystemOverlay: Permission granted = $hasPermission');
 
       if (!hasPermission) {
-        // Request permission
-        await overlay.FlutterOverlayWindow.requestPermission();
+        // DO NOT request permission during a call - just use notification fallback
+        print('_showSystemOverlay: Permission not granted, using notification fallback');
         return;
       }
 
-      // Show overlay
+      // Close any existing overlay first
+      if (_isOverlayActive) {
+        print('_showSystemOverlay: Closing existing overlay...');
+        try {
+          await overlay.FlutterOverlayWindow.closeOverlay();
+        } catch (e) {
+          print('_showSystemOverlay: Error closing existing overlay: $e');
+        }
+        _isOverlayActive = false;
+        await Future.delayed(const Duration(milliseconds: 200));
+      }
+
+      print('_showSystemOverlay: Showing new overlay...');
+
+      // Show overlay with proper size and position
       await overlay.FlutterOverlayWindow.showOverlay(
-        height: 180,
-        width: 300,
-        alignment: overlay.OverlayAlignment.topRight,
-        overlayTitle: "Fraud Alert",
-        flag: overlay.OverlayFlag.flagNotFocusable,
+        height: 220,
+        width: 340,
+        alignment: overlay.OverlayAlignment.topCenter,
+        overlayTitle: "AI Muhofiz - Fraud Alert",
+        flag: overlay.OverlayFlag.defaultFlag,
         visibility: overlay.NotificationVisibility.visibilityPublic,
         enableDrag: true,
         positionGravity: overlay.PositionGravity.auto,
       );
 
       _isOverlayActive = true;
+      print('_showSystemOverlay: Overlay shown successfully!');
     } catch (e) {
-      print('Error showing system overlay: $e');
+      print('_showSystemOverlay: Error showing overlay: $e');
+      _isOverlayActive = false;
       // Fallback to notification if overlay fails
     }
   }

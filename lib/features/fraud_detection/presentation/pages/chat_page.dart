@@ -17,12 +17,7 @@ class _AIChatPageState extends State<AIChatPage> {
   bool _isLoading = false;
   bool _isGeminiAvailable = false;
   
-  final List<ChatMessage> _messages = [
-    ChatMessage(
-      text: "Assalomu alaykum! Men AI Muhofiz loyihasi bo'yicha yordamchiman. Loyiha haqida istalgan savolingizni bering.",
-      isUser: false,
-    ),
-  ];
+  final List<ChatMessage> _messages = [];
 
   @override
   void initState() {
@@ -35,14 +30,40 @@ class _AIChatPageState extends State<AIChatPage> {
     if (mounted) {
       setState(() {
         _isGeminiAvailable = _geminiService.isAvailable;
+
+        // Load previous chat history
+        final savedHistory = _geminiService.chatHistory;
+        if (savedHistory.isNotEmpty) {
+          // Restore previous messages
+          for (final msg in savedHistory) {
+            _messages.add(ChatMessage(
+              text: msg['text'] ?? '',
+              isUser: msg['role'] == 'user',
+            ));
+          }
+          // Add separator for new session
+          _messages.add(ChatMessage(
+            text: "── Yangi sessiya ──",
+            isUser: false,
+            isSystem: true,
+          ));
+        } else {
+          // Add welcome message for first time users
+          _messages.add(ChatMessage(
+            text: "Assalomu alaykum! Men AI Muhofiz loyihasi bo'yicha yordamchiman. Loyiha haqida istalgan savolingizni bering.",
+            isUser: false,
+          ));
+        }
       });
-      
+
       // Add status message
       if (_isGeminiAvailable) {
         _addSystemMessage("✓ AI rejimi: Onlayn");
       } else {
         _addSystemMessage("⚠ AI rejimi: Offline (kalit so'zlar)");
       }
+
+      _scrollToBottom();
     }
   }
 
@@ -120,6 +141,47 @@ class _AIChatPageState extends State<AIChatPage> {
     });
   }
 
+  Future<void> _showClearHistoryDialog() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1C2C3E),
+        title: const Text(
+          'Tarixni tozalash',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          'Barcha suhbat tarixini o\'chirmoqchimisiz?',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Bekor qilish'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'O\'chirish',
+              style: TextStyle(color: Colors.redAccent),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _geminiService.clearHistory();
+      setState(() {
+        _messages.clear();
+        _messages.add(ChatMessage(
+          text: "Assalomu alaykum! Men AI Muhofiz loyihasi bo'yicha yordamchiman. Loyiha haqida istalgan savolingizni bering.",
+          isUser: false,
+        ));
+      });
+      _addSystemMessage("✓ Tarix tozalandi");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -129,6 +191,13 @@ class _AIChatPageState extends State<AIChatPage> {
         title: const Text('AI Chatbox'),
         backgroundColor: const Color(0xFF0F1720),
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
+            tooltip: "Tarixni tozalash",
+            onPressed: () => _showClearHistoryDialog(),
+          ),
+        ],
       ),
       body: Column(
         children: [

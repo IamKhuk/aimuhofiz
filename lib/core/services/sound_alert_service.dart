@@ -89,6 +89,29 @@ class SoundAlertService {
     await playThreatAlert(score);
   }
 
+  /// Play danger alert when auto-ending call (maximum intensity)
+  Future<void> playDangerAlert() async {
+    try {
+      await _audioPlayer.stop();
+
+      // Play at maximum volume with heavy haptic feedback
+      await _audioPlayer.play(
+        AssetSource('sounds/alert.wav'),
+        volume: 1.0,
+      );
+
+      // Multiple heavy haptic feedbacks for danger
+      HapticFeedback.heavyImpact();
+      await Future.delayed(const Duration(milliseconds: 200));
+      HapticFeedback.heavyImpact();
+      await Future.delayed(const Duration(milliseconds: 200));
+      HapticFeedback.heavyImpact();
+    } catch (e) {
+      print('Error playing danger alert: $e');
+      HapticFeedback.heavyImpact();
+    }
+  }
+
   /// Stop any currently playing alert
   Future<void> stopAlert() async {
     try {

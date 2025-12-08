@@ -18,7 +18,7 @@ android {
 
     kotlinOptions {
         jvmTarget = JavaVersion.VERSION_17.toString()
-        freeCompilerArgs = freeCompilerArgs + listOf("-Xjvm-default=compatibility")
+        freeCompilerArgs = freeCompilerArgs + listOf("-Xjvm-default=all-compatibility")
     }
 
     defaultConfig {
@@ -31,9 +31,7 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         
-        ndk {
-            abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64"))
-        }
+        // ndk abiFilters removed - using split-per-abi instead for smaller APKs
     }
 
     buildTypes {
@@ -41,6 +39,13 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            // Enable code shrinking and resource optimization
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
     

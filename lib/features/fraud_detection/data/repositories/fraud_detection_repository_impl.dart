@@ -52,7 +52,9 @@ class FraudDetectionRepositoryImpl implements FraudDetectionRepository {
   @override
   Future<Either<Failure, List<Detection>>> getRecentDetections() async {
     try {
-      final detectionsData = await localDataSource.getAllDetections();
+      // Add short timeout to prevent blocking UI - database loads in background
+      final detectionsData = await localDataSource.getAllDetections()
+          .timeout(const Duration(seconds: 3), onTimeout: () => []);
       final detections = detectionsData.map((d) => Detection(
         id: d.id,
         number: d.number,
@@ -63,7 +65,8 @@ class FraudDetectionRepositoryImpl implements FraudDetectionRepository {
       )).toList();
       return Right(detections);
     } catch (e) {
-      return Left(DatabaseFailure());
+      // Return empty list instead of failure on first run when database is initializing
+      return const Right([]);
     }
   }
 
