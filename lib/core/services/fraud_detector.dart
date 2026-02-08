@@ -98,17 +98,20 @@ class FraudDetector {
       final sequence = _textToSequence(text);
       final padded = _padSequence(sequence);
 
-      // Prepare input tensor (batch size 16 required by model)
-      final input = List.generate(16, (_) => padded);
-      final inputTensor = [input];
-
-      // Prepare output tensor
-      final output = List.generate(16, (_) => [0.0]);
-
-      // Run inference
-      _interpreter?.run(inputTensor[0], output);
-
-      mlScore = output[0][0];
+      try {
+        _interpreter!.resizeInputTensor(0, [1, maxLen]);
+        _interpreter!.allocateTensors();
+        final input = [padded];
+        final output = [<double>[0.0]];
+        _interpreter!.run(input, output);
+        mlScore = output[0][0];
+      } catch (_) {
+        // Fall back to batch 16 if model requires it
+        final input = List.generate(16, (_) => padded);
+        final output = List.generate(16, (_) => [0.0]);
+        _interpreter?.run(input, output);
+        mlScore = output[0][0];
+      }
     } catch (e) {
       print('ML inference error: $e');
     }

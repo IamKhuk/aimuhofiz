@@ -5,7 +5,6 @@ import '../widgets/threat_card_widget.dart';
 import 'threat_details_page.dart';
 import '../../domain/entities/detection.dart';
 import '../../../../injection_container.dart';
-import '../data/sample_threat_data.dart';
 
 class HistoryPage extends StatelessWidget {
   const HistoryPage({super.key});
@@ -36,13 +35,7 @@ class HistoryPageContent extends StatelessWidget {
           isLoading = true;
         }
 
-        // Always show sample data immediately - don't wait for database
-        final sampleDetections = SampleThreatData.allThreats
-            .map((threat) => threat.detection)
-            .toList();
-
-        // Combine with database detections (if any)
-        final allDetections = [...dbDetections, ...sampleDetections];
+        final allDetections = [...dbDetections];
 
         // Sort by timestamp (newest first)
         allDetections.sort((a, b) => b.timestamp.compareTo(a.timestamp));

@@ -44,6 +44,11 @@ class AppDatabase extends _$AppDatabase {
     return into(detectionTables).insert(detection);
   }
 
+  Future<int> markAsReported(int id) {
+    return (update(detectionTables)..where((t) => t.id.equals(id)))
+        .write(const DetectionTablesCompanion(reported: Value(true)));
+  }
+
   /// Get all detections ordered by timestamp (newest first) with a reasonable limit
   /// This prevents loading too many records into memory at once
   Future<List<DetectionData>> getAllDetections({int limit = 1000}) {

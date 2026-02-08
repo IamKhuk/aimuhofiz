@@ -1,11 +1,8 @@
 import 'dart:convert';
-import 'package:flutter/material.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart' as overlay;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import '../../features/fraud_detection/presentation/pages/threat_overlay_widget.dart';
 import '../services/fraud_detector.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'sound_alert_service.dart';
 
 /// Service to manage floating threat overlay during calls
 class ThreatOverlayService {
@@ -73,13 +70,7 @@ class ThreatOverlayService {
     await _storeThreatData(fraudResult, phoneNumber);
     print('  - Threat data stored');
 
-    // Play sound alert based on threat score
-    // Only play if score indicates a threat (>= 30)
-    if (fraudResult.score >= 30) {
-      final soundService = SoundAlertService();
-      await soundService.playFraudAlert(fraudResult.score);
-      print('  - Sound alert played');
-    }
+    // Sound is handled by CallMonitoringService — no duplicate play here
 
     // Try to show system overlay (Android)
     print('  - Attempting to show system overlay...');

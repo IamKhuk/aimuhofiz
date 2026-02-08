@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'fraud_detector.dart';
 
@@ -9,6 +10,7 @@ class CallAnalyzer {
   String _accumulatedText = '';
   bool _isInitialized = false;
   bool _isListening = false;
+  bool _isSpeechActive = false;
 
   /// Initialize the call analyzer
   /// Call this once when app starts
@@ -24,9 +26,9 @@ class CallAnalyzer {
       }
 
       _isInitialized = true;
-      print('CallAnalyzer initialized successfully');
+      debugPrint('CallAnalyzer initialized successfully');
     } catch (e) {
-      print('Error initializing CallAnalyzer: $e');
+      debugPrint('Error initializing CallAnalyzer: $e');
       rethrow;
     }
   }
@@ -43,7 +45,7 @@ class CallAnalyzer {
     }
 
     if (_isListening) {
-      print('Already listening');
+      debugPrint('Already listening');
       return;
     }
 
@@ -65,8 +67,10 @@ class CallAnalyzer {
         partialResults: true,
         cancelOnError: false,
       );
+      _isSpeechActive = true;
     } catch (e) {
-      print('Speech recognition error (might be simulator): $e');
+      _isSpeechActive = false;
+      debugPrint('Speech recognition error (might be simulator): $e');
       // Continue successfully even if speech fails, to allow simulation
     }
   }
@@ -98,10 +102,8 @@ class CallAnalyzer {
     // Analyze for fraud
     final fraudResult = await _fraudDetector.analyze(_accumulatedText);
 
-    if (fraudResult.isFraud) {
-       if (onFraudDetected != null) {
-         onFraudDetected!(fraudResult);
-       }
+    if (onFraudDetected != null) {
+      onFraudDetected!(fraudResult);
     }
   }
 
@@ -120,6 +122,9 @@ class CallAnalyzer {
 
   /// Check if currently listening
   bool get isListening => _isListening;
+
+  /// Check if speech recognition is actively working
+  bool get isSpeechActive => _isSpeechActive;
 
   /// Get accumulated text
   String get accumulatedText => _accumulatedText;
