@@ -10,7 +10,7 @@ class ModelDataSourceImpl implements ModelDataSource {
 
   Future<void> loadModel() async {
     try {
-      // _interpreter = await Interpreter.fromAsset('assets/model.tflite');
+      _interpreter = await Interpreter.fromAsset('assets/model.tflite');
     } catch (e) {
       debugPrint('Error loading model: $e');
     }

@@ -1,6 +1,8 @@
 package uz.aisurface.firiblock
 
 import android.content.Context
+import android.app.role.RoleManager
+import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
 import android.os.Bundle
@@ -12,24 +14,25 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     private val TAG = "MainActivity"
-    private val CHANNEL = "com.firiblock.app/call_state"
+    private val CHANNEL_CALL_STATE = "uz.aisurface.firiblock/call_state"
+    private val CHANNEL_CALL_SCREENING = "call_screening"
+    private val CHANNEL_CALL_SCREENING_PERMISSION = "call_screening_permission"
     private var phoneStateReceiver: PhoneStateReceiver? = null
     private var callManager: CallManager? = null
+    private var callScreeningChannel: MethodChannel? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         Log.d(TAG, "configureFlutterEngine called")
 
-        // Initialize CallManager
         callManager = CallManager(this)
 
-        // Set up MethodChannel
-        val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
-        PhoneStateReceiver.setChannel(channel)
+        // Call State channel
+        val callStateChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL_CALL_STATE)
+        PhoneStateReceiver.setChannel(callStateChannel)
         Log.d(TAG, "MethodChannel configured")
 
-        // Handle method calls from Flutter
-        channel.setMethodCallHandler { call, result ->
+        callStateChannel.setMethodCallHandler { call, result ->
             Log.d(TAG, "Method call received: ${call.method}")
             when (call.method) {
                 "endCall" -> {
@@ -48,13 +51,33 @@ class MainActivity : FlutterActivity() {
                 }
             }
         }
+
+        // Call Screening channel
+        callScreeningChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL_CALL_SCREENING)
+        callScreeningChannel?.setMethodCallHandler { call, result ->
+            if (call.method == "onIncomingCall") {
+                val number = call.argument<String>("number")
+                result.success(null)
+            } else {
+                result.notImplemented()
+            }
+        }
+
+        // Call Screening Permission channel
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL_CALL_SCREENING_PERMISSION)
+            .setMethodCallHandler { call, result ->
+                if (call.method == "request_call_screening") {
+                    requestCallScreening()
+                    result.success(null)
+                } else {
+                    result.notImplemented()
+                }
+            }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Log.d(TAG, "onCreate called")
-
-        // Register phone state receiver
         registerPhoneStateReceiver()
     }
 
@@ -66,7 +89,6 @@ class MainActivity : FlutterActivity() {
                 addAction("android.intent.action.PHONE_STATE")
             }
 
-            // For Android 12+ (API 31+), we need to specify receiver flags
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 registerReceiver(phoneStateReceiver, filter, Context.RECEIVER_EXPORTED)
                 Log.d(TAG, "Registered receiver with RECEIVER_EXPORTED flag (Android 13+)")
@@ -85,7 +107,6 @@ class MainActivity : FlutterActivity() {
     override fun onDestroy() {
         super.onDestroy()
         Log.d(TAG, "onDestroy called")
-        // Unregister receiver
         phoneStateReceiver?.let {
             try {
                 unregisterReceiver(it)
@@ -94,5 +115,19 @@ class MainActivity : FlutterActivity() {
                 Log.e(TAG, "Error unregistering receiver: ${e.message}")
             }
         }
+    }
+
+    private fun requestCallScreening() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val roleManager = getSystemService(RoleManager::class.java)
+            if (roleManager != null && !roleManager.isRoleHeld(RoleManager.ROLE_CALL_SCREENING)) {
+                val intent = roleManager.createRequestRoleIntent(RoleManager.ROLE_CALL_SCREENING)
+                startActivityForResult(intent, REQUEST_CALL_SCREENING)
+            }
+        }
+    }
+
+    companion object {
+        private const val REQUEST_CALL_SCREENING = 1001
     }
 }

@@ -5,18 +5,6 @@ import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import '../../../../core/services/fraud_detector.dart';
 import '../../../../core/services/threat_overlay_service.dart';
 
-/// Floating widget that appears on screen when fraud is detected
-/// This is used as the overlay entry point
-@pragma("vm:entry-point")
-void threatOverlayMain() {
-  runApp(
-    MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: const ThreatOverlayWidget(),
-    ),
-  );
-}
-
 class ThreatOverlayWidget extends StatefulWidget {
   const ThreatOverlayWidget({super.key});
 

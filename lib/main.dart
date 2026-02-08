@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'core/utils/call_screening_bridge.dart';
 import 'features/fraud_detection/presentation/pages/main_navigation.dart';
 import 'features/fraud_detection/presentation/pages/ongoing_threat_page.dart';
 import 'core/services/threat_overlay_service.dart';
@@ -7,9 +9,12 @@ import 'core/services/sound_alert_service.dart';
 import 'core/services/permission_service.dart';
 import 'core/theme/fraud_detection_theme.dart';
 import 'injection_container.dart' as di;
+import 'features/fraud_detection/presentation/pages/threat_overlay_widget.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  CallScreeningBridge.init();
   await di.init();
 
   // Initialize sound alert service
@@ -22,6 +27,17 @@ void main() async {
   await CallMonitoringService().initialize();
 
   runApp(const MyApp());
+}
+
+@pragma("vm:entry-point")
+void overlayMain() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(
+    const MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: ThreatOverlayWidget(),
+    ),
+  );
 }
 
 class MyApp extends StatefulWidget {
@@ -46,7 +62,18 @@ class _MyAppState extends State<MyApp> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _requestPermissions();
       await _checkForStoredThreat();
+      await requestEnable();
     });
+  }
+
+  static const _channel = MethodChannel('call_screening_permission');
+
+  static Future<void> requestEnable() async {
+    try {
+      await _channel.invokeMethod('request_call_screening');
+    } catch (e) {
+      print('Failed to request call screening: $e');
+    }
   }
 
   Future<void> _requestPermissions() async {
