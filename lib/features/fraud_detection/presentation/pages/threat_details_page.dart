@@ -737,72 +737,6 @@ class ThreatDetailsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildBehavioralPatternsCard(
-    BuildContext context,
-    BehavioralPatterns patterns,
-    bool isDark,
-  ) {
-    final cardColor = isDark ? const Color(0xFF2C2C2C) : (Colors.grey[200] ?? Colors.grey);
-    final textColor = isDark ? Colors.white : Colors.black87;
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Xulq-atvor Namunalari',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: textColor,
-                    ),
-              ),
-              Text(
-                '${(patterns.confidence * 100).toInt()}% ishonch',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.blue,
-                    ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          ...patterns.patterns.map((pattern) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      margin: const EdgeInsets.only(top: 6, right: 12),
-                      decoration: const BoxDecoration(
-                        color: Colors.blue,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        pattern,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: textColor,
-                            ),
-                      ),
-                    ),
-                  ],
-                ),
-              )),
-        ],
-      ),
-    );
-  }
-
   Widget _buildCallTimelineCard(
     BuildContext context,
     List<TimelineEvent> events,
@@ -846,7 +780,7 @@ class ThreatDetailsPage extends StatelessWidget {
                         color: dotColor,
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: cardColor!,
+                          color: cardColor,
                           width: 2,
                         ),
                       ),

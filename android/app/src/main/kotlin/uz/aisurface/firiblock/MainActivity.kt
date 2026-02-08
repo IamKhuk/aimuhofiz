@@ -54,6 +54,7 @@ class MainActivity : FlutterActivity() {
 
         // Call Screening channel
         callScreeningChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL_CALL_SCREENING)
+        Companion.callScreeningChannel = callScreeningChannel
         callScreeningChannel?.setMethodCallHandler { call, result ->
             if (call.method == "onIncomingCall") {
                 val number = call.argument<String>("number")
@@ -129,5 +130,6 @@ class MainActivity : FlutterActivity() {
 
     companion object {
         private const val REQUEST_CALL_SCREENING = 1001
+        var callScreeningChannel: MethodChannel? = null
     }
 }

@@ -4,7 +4,7 @@ import 'call_monitoring_service.dart';
 
 /// Service to listen to system phone state changes
 class CallStateListener {
-  static const MethodChannel _channel = MethodChannel('com.firiblock.app/call_state');
+  static const MethodChannel _channel = MethodChannel('uz.aisurface.firiblock/call_state');
   final CallMonitoringService _monitoringService = CallMonitoringService();
   static bool _isInitialized = false;
   static String? _lastState;

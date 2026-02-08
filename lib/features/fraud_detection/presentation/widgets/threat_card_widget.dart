@@ -297,8 +297,6 @@ class ThreatCardWidget extends StatelessWidget {
     
     // For duration, we'll use a placeholder since it's not in Detection
     // In a real app, this would come from call logs
-    final duration = '0:34'; // Placeholder
-    
     return '$timeAgo • $timeString';
   }
 
