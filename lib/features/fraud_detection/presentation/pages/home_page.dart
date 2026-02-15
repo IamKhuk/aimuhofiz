@@ -115,10 +115,12 @@ class HomePage extends StatelessWidget {
               subtitle: const Text('+998 90 123 45 67', style: TextStyle(color: Colors.white70)),
               onTap: () async {
                 Navigator.pop(context);
-                await sl<CallMonitoringService>().simulateIncomingCall('+998901234567');
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Simulating Call... Monitor Active')),
-                );
+                await CallMonitoringService().simulateIncomingCall('+998901234567');
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Simulating Call... Monitor Active')),
+                  );
+                }
               },
             ),
             ListTile(
@@ -126,28 +128,28 @@ class HomePage extends StatelessWidget {
               title: const Text('Simulate Safe Text', style: TextStyle(color: Colors.white)),
               onTap: () async {
                 Navigator.pop(context);
-                await sl<CallMonitoringService>().simulateText("Hello, how are you? I am just calling to say hi.");
+                await CallMonitoringService().simulateText("salom qalaysiz bugun ob havo juda yaxshi uchrashsak bo'ladimi");
               },
             ),
             ListTile(
               leading: const Icon(Icons.warning, color: Colors.orange),
               title: const Text('Simulate Fraud (High)', style: TextStyle(color: Colors.white)),
-              subtitle: const Text('Keywords: urgent, bank, card, code', style: TextStyle(color: Colors.white70)),
+              subtitle: const Text('bank, karta, kod, tezda', style: TextStyle(color: Colors.white70)),
               onTap: () async {
                 Navigator.pop(context);
-                await sl<CallMonitoringService>().simulateText(
-                  "This is urgent from your bank. Your card is blocked. Please give me the code sent to your phone immediately to unblock it."
+                await CallMonitoringService().simulateText(
+                  "salom men bank xodimiman sizning kartangiz bloklangan tezda menga sms kodini yuboring karta raqamingizni ayting"
                 );
               },
             ),
              ListTile(
               leading: const Icon(Icons.dangerous, color: Colors.red),
               title: const Text('Simulate Fraud (Danger)', style: TextStyle(color: Colors.white)),
-              subtitle: const Text('Keywords: prize, win, money, secret', style: TextStyle(color: Colors.white70)),
+              subtitle: const Text('sovrin, politsiya, sir, parol', style: TextStyle(color: Colors.white70)),
               onTap: () async {
                 Navigator.pop(context);
-                await sl<CallMonitoringService>().simulateText(
-                  "Congratulations! You won a big prize money. But keep it secret. Send money to claim your win now."
+                await CallMonitoringService().simulateText(
+                  "siz million so'm yutdingiz sovrin olish uchun tezda parol kodini yuboring hech kimga aytmang bu sir politsiya chaqiramiz"
                 );
               },
             ),
@@ -156,10 +158,12 @@ class HomePage extends StatelessWidget {
               title: const Text('Stop Monitoring', style: TextStyle(color: Colors.white)),
               onTap: () async {
                 Navigator.pop(context);
-                await sl<CallMonitoringService>().stopMonitoringCall();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Monitoring Stopped')),
-                );
+                await CallMonitoringService().stopMonitoringCall();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Monitoring Stopped')),
+                  );
+                }
               },
             ),
           ],

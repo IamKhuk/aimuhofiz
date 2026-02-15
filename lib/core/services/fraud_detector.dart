@@ -58,13 +58,13 @@ class FraudDetector {
     }).toList();
   }
 
-  /// Pad sequence to fixed length
-  List<double> _padSequence(List<int> sequence) {
-    final padded = List<double>.filled(maxLen, 0);
+  /// Pad sequence to fixed length (int32 for Embedding layer input)
+  List<int> _padSequence(List<int> sequence) {
+    final padded = List<int>.filled(maxLen, 0);
     final len = sequence.length > maxLen ? maxLen : sequence.length;
 
     for (int i = 0; i < len; i++) {
-      padded[i] = sequence[i].toDouble();
+      padded[i] = sequence[i];
     }
 
     return padded;
@@ -96,22 +96,29 @@ class FraudDetector {
     double mlScore = 0.0;
     try {
       final sequence = _textToSequence(text);
-      final padded = _padSequence(sequence);
+      final padded = _padSequence(sequence); // List<int> for Embedding lookup
 
       try {
         _interpreter!.resizeInputTensor(0, [1, maxLen]);
         _interpreter!.allocateTensors();
-        final input = [padded];
+        // Embedding layer expects int32 input (word indices)
+        final input = [padded]; // List<List<int>>
         final output = [<double>[0.0]];
         _interpreter!.run(input, output);
         mlScore = output[0][0];
-      } catch (_) {
+      } catch (e) {
+        print('ML inference primary error: $e');
         // Fall back to batch 16 if model requires it
-        final input = List.generate(16, (_) => padded);
-        final output = List.generate(16, (_) => [0.0]);
-        _interpreter?.run(input, output);
-        mlScore = output[0][0];
+        try {
+          final input = List.generate(16, (_) => padded);
+          final output = List.generate(16, (_) => [0.0]);
+          _interpreter?.run(input, output);
+          mlScore = output[0][0];
+        } catch (e2) {
+          print('ML inference fallback error: $e2');
+        }
       }
+      print('ML raw score: $mlScore');
     } catch (e) {
       print('ML inference error: $e');
     }
