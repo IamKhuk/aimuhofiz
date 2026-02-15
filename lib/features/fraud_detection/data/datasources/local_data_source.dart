@@ -49,6 +49,47 @@ class AppDatabase extends _$AppDatabase {
         .write(const DetectionTablesCompanion(reported: Value(true)));
   }
 
+  Future<void> seedSampleData() async {
+    final count = await detectionTables.count().getSingle();
+    if (count > 0) return;
+
+    final now = DateTime.now();
+    final samples = [
+      DetectionTablesCompanion(
+        number: const Value('+998901234567'),
+        score: const Value(92),
+        reason: const Value('Soliq xizmati firibgarligi aniqlandi: shoshilinch to\'lov talab qilindi'),
+        timestamp: Value(now.subtract(const Duration(hours: 2))),
+      ),
+      DetectionTablesCompanion(
+        number: const Value('+998935551234'),
+        score: const Value(78),
+        reason: const Value('Tech support firibgarligi: kompyuteringizga masofaviy kirish so\'raldi'),
+        timestamp: Value(now.subtract(const Duration(hours: 18))),
+      ),
+      DetectionTablesCompanion(
+        number: const Value('+998911112233'),
+        score: const Value(65),
+        reason: const Value('Bank hisobini tekshirish so\'rovi: shubhali so\'rov'),
+        timestamp: Value(now.subtract(const Duration(days: 1, hours: 5))),
+      ),
+      DetectionTablesCompanion(
+        number: const Value('+998943334455'),
+        score: const Value(45),
+        reason: const Value('Lotereya yutug\'i haqida shubhali xabar'),
+        timestamp: Value(now.subtract(const Duration(days: 2, hours: 10))),
+      ),
+      DetectionTablesCompanion(
+        number: const Value('+998977778899'),
+        score: const Value(12),
+        reason: const Value('Oddiy qo\'ng\'iroq, xavf aniqlanmadi'),
+        timestamp: Value(now.subtract(const Duration(days: 3))),
+      ),
+    ];
+
+    await batch((b) => b.insertAll(detectionTables, samples));
+  }
+
   /// Get all detections ordered by timestamp (newest first) with a reasonable limit
   /// This prevents loading too many records into memory at once
   Future<List<DetectionData>> getAllDetections({int limit = 1000}) {

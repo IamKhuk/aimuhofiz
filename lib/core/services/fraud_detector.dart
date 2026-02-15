@@ -145,7 +145,18 @@ class FraudDetector {
     });
 
     // Combine ML and keyword scores
-    final combinedScore = (mlScore * 60) + (keywordScore.clamp(0, 40));
+    // Use whichever signal is stronger — ML or keywords — to avoid one capping the other
+    final mlContribution = mlScore * 100; // ML alone can reach 100
+    final kwContribution = keywordScore.clamp(0, 100).toDouble(); // Keywords alone can reach 100
+    // Weighted blend: if both are active use blend, otherwise let the stronger one dominate
+    double combinedScore;
+    if (mlContribution > 10 && kwContribution > 10) {
+      // Both signals present: 50/50 blend
+      combinedScore = (mlContribution * 0.5) + (kwContribution * 0.5);
+    } else {
+      // One signal dominant: use the max
+      combinedScore = mlContribution > kwContribution ? mlContribution : kwContribution;
+    }
     final finalScore = combinedScore.clamp(0, 100).toDouble();
 
     return FraudResult(

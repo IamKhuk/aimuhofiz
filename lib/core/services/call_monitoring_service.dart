@@ -1,6 +1,7 @@
-import 'dart:convert';
+import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_overlay_window/flutter_overlay_window.dart' as overlay;
+import 'package:get_it/get_it.dart';
+import '../../features/fraud_detection/data/datasources/local_data_source.dart';
 import '../services/call_analyzer.dart';
 import '../services/call_state_listener.dart';
 import '../services/fraud_detector.dart';
@@ -14,6 +15,7 @@ class CallMonitoringService {
   String? _currentPhoneNumber;
   bool _isMonitoring = false;
   bool _hasAutoEndedCall = false;
+  FraudResult? _lastFraudResult;
 
   static final CallMonitoringService _instance =
       CallMonitoringService._internal();
@@ -46,6 +48,7 @@ class CallMonitoringService {
     _currentPhoneNumber = phoneNumber;
     _isMonitoring = true;
     _hasAutoEndedCall = false;
+    _lastFraudResult = null;
     debugPrint('Started monitoring call for: $phoneNumber');
 
     // Show initial overlay with 0% score (safe)
@@ -57,6 +60,11 @@ class CallMonitoringService {
     await _callAnalyzer.startListening(
       onFraudDetected: (FraudResult fraudResult) async {
         print('Fraud Analysis: Score: ${fraudResult.score}');
+
+        // Track the highest fraud result for saving to history
+        if (_lastFraudResult == null || fraudResult.score > _lastFraudResult!.score) {
+          _lastFraudResult = fraudResult;
+        }
 
         // Update overlay with new score
         await _updateOverlay(fraudResult, phoneNumber);
@@ -106,25 +114,13 @@ class CallMonitoringService {
     }
   }
 
-  /// Update overlay with new fraud result
+  /// Update overlay with new fraud result (no close/reopen, just sends data)
   Future<void> _updateOverlay(
       FraudResult fraudResult, String phoneNumber) async {
-    // Store the updated threat data
-    await ThreatOverlayService.showThreatOverlay(
+    await ThreatOverlayService.updateThreatOverlay(
       fraudResult: fraudResult,
       phoneNumber: phoneNumber,
     );
-
-    // Send real-time update to overlay window
-    try {
-      final data = jsonEncode({
-        'fraud_result': fraudResult.toJson(),
-        'phone_number': phoneNumber,
-      });
-      await overlay.FlutterOverlayWindow.shareData(data);
-    } catch (e) {
-      print('Error sending data to overlay: $e');
-    }
   }
 
   /// Auto-end call when fraud score reaches 95%
@@ -171,17 +167,68 @@ class CallMonitoringService {
     }
   }
 
-  /// Stop monitoring the current call
+  /// Stop monitoring the current call and save detection to history
   Future<void> stopMonitoringCall() async {
     if (_isMonitoring) {
       _callAnalyzer.stopListening();
       _callAnalyzer.reset();
       await ThreatOverlayService.hideThreatOverlay();
+
+      // Save the call detection to database for history
+      await _saveDetectionToHistory();
+
       _isMonitoring = false;
       _currentPhoneNumber = null;
       _hasAutoEndedCall = false;
+      _lastFraudResult = null;
       print('Stopped monitoring call');
     }
+  }
+
+  /// Persist the detection result to the local database
+  Future<void> _saveDetectionToHistory() async {
+    final phoneNumber = _currentPhoneNumber ?? 'Unknown';
+    final fraudResult = _lastFraudResult;
+
+    // Always save — even safe calls — so user sees full call history
+    try {
+      final db = GetIt.instance<AppDatabase>();
+
+      final score = fraudResult?.score ?? 0;
+      final reason = fraudResult != null
+          ? _buildReason(fraudResult)
+          : "Qo'ng'iroq tahlil qilindi, xavf aniqlanmadi";
+
+      await db.insertDetection(
+        DetectionTablesCompanion(
+          number: Value(phoneNumber),
+          score: Value(score),
+          reason: Value(reason),
+          timestamp: Value(DateTime.now()),
+          reported: const Value(false),
+        ),
+      );
+      debugPrint('Detection saved to history: $phoneNumber, score: $score');
+    } catch (e) {
+      debugPrint('Error saving detection to history: $e');
+    }
+  }
+
+  /// Build a human-readable reason string from the FraudResult
+  String _buildReason(FraudResult result) {
+    if (result.score < 30) {
+      return "Oddiy qo'ng'iroq, xavf aniqlanmadi";
+    }
+
+    final parts = <String>[];
+    parts.add(result.warningMessage);
+
+    if (result.keywordsFound.isNotEmpty) {
+      final categories = result.keywordsFound.keys.join(', ');
+      parts.add('Aniqlangan toifalar: $categories');
+    }
+
+    return parts.join('. ');
   }
 
   /// Check if currently monitoring a call

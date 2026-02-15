@@ -31,4 +31,7 @@ Future<void> init() async {
   // Data sources
   sl.registerLazySingleton(() => AppDatabase());
   sl.registerLazySingleton<ModelDataSource>(() => ModelDataSourceImpl());
+
+  // Seed sample data on first launch
+  await sl<AppDatabase>().seedSampleData();
 }

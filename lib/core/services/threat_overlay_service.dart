@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter_overlay_window/flutter_overlay_window.dart' as overlay;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../services/fraud_detector.dart';
@@ -54,7 +56,7 @@ class ThreatOverlayService {
     }
   }
 
-  /// Show the threat overlay when fraud is detected
+  /// Show the threat overlay when fraud is detected (first time only)
   static Future<void> showThreatOverlay({
     required FraudResult fraudResult,
     required String phoneNumber,
@@ -68,18 +70,38 @@ class ThreatOverlayService {
 
     // Store threat data for navigation
     await _storeThreatData(fraudResult, phoneNumber);
-    print('  - Threat data stored');
 
-    // Sound is handled by CallMonitoringService — no duplicate play here
+    // Only show overlay if not already active — otherwise use shareData for updates
+    if (!_isOverlayActive) {
+      await _showSystemOverlay(fraudResult);
+      // Show notification only on first display
+      await _showNotification(fraudResult, phoneNumber);
+    }
 
-    // Try to show system overlay (Android)
-    print('  - Attempting to show system overlay...');
-    await _showSystemOverlay(fraudResult);
-
-    // Also show notification as fallback
-    print('  - Showing notification...');
-    await _showNotification(fraudResult, phoneNumber);
     print('ThreatOverlayService.showThreatOverlay complete');
+  }
+
+  /// Update an already-visible overlay with new fraud data (no close/reopen)
+  static Future<void> updateThreatOverlay({
+    required FraudResult fraudResult,
+    required String phoneNumber,
+  }) async {
+    _currentThreat = fraudResult;
+    _currentPhoneNumber = phoneNumber;
+    await _storeThreatData(fraudResult, phoneNumber);
+
+    // Send data to the running overlay via shareData — no close/reopen
+    if (_isOverlayActive && Platform.isAndroid) {
+      try {
+        final data = jsonEncode({
+          'fraud_result': fraudResult.toJson(),
+          'phone_number': phoneNumber,
+        });
+        await overlay.FlutterOverlayWindow.shareData(data);
+      } catch (e) {
+        print('Error sending data to overlay: $e');
+      }
+    }
   }
 
   /// Store threat data for navigation
@@ -98,6 +120,7 @@ class ThreatOverlayService {
   /// Show system overlay (Android only)
   /// IMPORTANT: Never request permission during a call - only check if granted
   static Future<void> _showSystemOverlay(FraudResult fraudResult) async {
+    if (!Platform.isAndroid) return;
     try {
       print('_showSystemOverlay: Checking permission...');
 
@@ -129,7 +152,7 @@ class ThreatOverlayService {
       await overlay.FlutterOverlayWindow.showOverlay(
         height: 220,
         width: 340,
-        alignment: overlay.OverlayAlignment.topCenter,
+        alignment: overlay.OverlayAlignment.center,
         overlayTitle: "AI Muhofiz - Fraud Alert",
         flag: overlay.OverlayFlag.defaultFlag,
         visibility: overlay.NotificationVisibility.visibilityPublic,
@@ -190,7 +213,7 @@ class ThreatOverlayService {
 
   /// Hide the threat overlay
   static Future<void> hideThreatOverlay() async {
-    if (_isOverlayActive) {
+    if (_isOverlayActive && Platform.isAndroid) {
       try {
         await overlay.FlutterOverlayWindow.closeOverlay();
         _isOverlayActive = false;

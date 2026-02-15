@@ -11,6 +11,11 @@ class CallAnalyzer {
   bool _isInitialized = false;
   bool _isListening = false;
   bool _isSpeechActive = false;
+  bool _shouldKeepListening = false;
+  String _resolvedLocale = 'uz_UZ';
+
+  // Preferred locales in priority order: Uzbek, Russian, English
+  static const _preferredLocales = ['uz_UZ', 'ru_RU', 'en_US'];
 
   /// Initialize the call analyzer
   /// Call this once when app starts
@@ -19,17 +24,96 @@ class CallAnalyzer {
 
     try {
       await _fraudDetector.initialize();
-      final available = await _speech.initialize();
-      
+      final available = await _speech.initialize(
+        onStatus: _onSpeechStatus,
+        onError: _onSpeechError,
+      );
+
       if (!available) {
-        throw Exception('Speech recognition not available');
+        // Mark as initialized anyway so simulation still works
+        debugPrint('CallAnalyzer: Speech recognition not available, simulation mode only');
+        _isInitialized = true;
+        return;
       }
 
+      // Resolve the best available locale
+      await _resolveLocale();
+
       _isInitialized = true;
-      debugPrint('CallAnalyzer initialized successfully');
+      debugPrint('CallAnalyzer initialized successfully, locale: $_resolvedLocale');
     } catch (e) {
       debugPrint('Error initializing CallAnalyzer: $e');
-      rethrow;
+      // Initialize anyway for simulation support
+      _isInitialized = true;
+    }
+  }
+
+  /// Find the best supported locale from our preference list
+  Future<void> _resolveLocale() async {
+    try {
+      final locales = await _speech.locales();
+      final localeIds = locales.map((l) => l.localeId).toSet();
+      debugPrint('CallAnalyzer: Available locales: ${localeIds.take(10)}...');
+
+      for (final preferred in _preferredLocales) {
+        if (localeIds.contains(preferred)) {
+          _resolvedLocale = preferred;
+          debugPrint('CallAnalyzer: Using locale: $_resolvedLocale');
+          return;
+        }
+        // Also try matching just the language code (e.g., "uz" matches "uz_UZ")
+        final langCode = preferred.split('_').first;
+        final match = localeIds.firstWhere(
+          (id) => id.startsWith(langCode),
+          orElse: () => '',
+        );
+        if (match.isNotEmpty) {
+          _resolvedLocale = match;
+          debugPrint('CallAnalyzer: Using locale (partial match): $_resolvedLocale');
+          return;
+        }
+      }
+
+      // Use system default as last resort
+      final systemLocale = await _speech.systemLocale();
+      if (systemLocale != null) {
+        _resolvedLocale = systemLocale.localeId;
+        debugPrint('CallAnalyzer: Falling back to system locale: $_resolvedLocale');
+      }
+    } catch (e) {
+      debugPrint('CallAnalyzer: Error resolving locale: $e');
+    }
+  }
+
+  /// Handle speech status changes — auto-restart when done
+  void _onSpeechStatus(String status) {
+    debugPrint('CallAnalyzer: Speech status: $status');
+    if (status == 'done' || status == 'notListening') {
+      _isSpeechActive = false;
+      if (_shouldKeepListening) {
+        // Auto-restart after a short delay
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (_shouldKeepListening) {
+            debugPrint('CallAnalyzer: Auto-restarting speech recognition...');
+            _startSpeechListener();
+          }
+        });
+      }
+    }
+  }
+
+  /// Handle speech errors — auto-restart on recoverable errors
+  void _onSpeechError(dynamic error) {
+    debugPrint('CallAnalyzer: Speech error: $error');
+    _isSpeechActive = false;
+    if (_shouldKeepListening) {
+      // Restart after a longer delay on error
+      Future.delayed(const Duration(seconds: 1), () {
+        if (_shouldKeepListening) {
+          debugPrint('CallAnalyzer: Restarting after error...');
+          _startSpeechListener();
+        }
+      });
     }
   }
 
@@ -50,28 +134,41 @@ class CallAnalyzer {
     }
 
     _isListening = true;
+    _shouldKeepListening = true;
     _accumulatedText = '';
 
     // Store callbacks for simulation usage
     this.onFraudDetected = onFraudDetected;
     this.onTextRecognized = onTextRecognized;
 
+    await _startSpeechListener();
+  }
+
+  /// Internal: start the speech listener (called on initial start and auto-restart)
+  Future<void> _startSpeechListener() async {
+    if (!_shouldKeepListening) return;
+
     try {
       await _speech.listen(
         onResult: (result) async {
           final text = result.recognizedWords;
-          await processText(text);
+          if (text.isNotEmpty) {
+            await processText(text);
+          }
         },
-        localeId: localeId,
+        localeId: _resolvedLocale,
         listenMode: ListenMode.dictation,
         partialResults: true,
         cancelOnError: false,
+        listenFor: const Duration(seconds: 30),
+        pauseFor: const Duration(seconds: 5),
       );
       _isSpeechActive = true;
+      debugPrint('CallAnalyzer: Speech listener started (locale: $_resolvedLocale)');
     } catch (e) {
       _isSpeechActive = false;
-      debugPrint('Speech recognition error (might be simulator): $e');
-      // Continue successfully even if speech fails, to allow simulation
+      debugPrint('CallAnalyzer: Speech recognition error: $e');
+      // Auto-restart will be handled by _onSpeechError
     }
   }
 
@@ -82,22 +179,20 @@ class CallAnalyzer {
   /// Process text (either from SpeechToText or Simulation)
   Future<void> processText(String text) async {
     if (!_isListening) return;
-    
-    // Only update if text is new or longer (basic check)
-    // For simulation, we might append. For live speech, 'result.recognizedWords' is the full session text mostly.
-    // We'll trust the input 'text' is what we want to analyze.
-    
+
     if (onTextRecognized != null) {
       onTextRecognized!(text);
     }
-    
-    // Simple logic: if text is shorter than accumulated, it might be a new sentence or reset
-    // For now, let's just append for simulation if it seems discrete, or replace if continuous.
-    // To support the prompt's requirement "Simulate Fraud", we'll just analyze the incoming text chunk directly appended
-    // or as is. 
-    // Let's assume input text is the *latest* update.
-    
-    _accumulatedText = text; // SpeechToText gives full history usually. For simulation we might need to handle differently but this is safe for now.
+
+    // Append new text to accumulated if it's not a substring of existing text
+    // SpeechToText gives full utterance per session; on restart we get new text
+    if (_accumulatedText.isNotEmpty && !text.startsWith(_accumulatedText)) {
+      // New listening session — append to accumulated text
+      _accumulatedText = '$_accumulatedText $text';
+    } else {
+      // Same session — replace with latest (includes partial results)
+      _accumulatedText = text;
+    }
 
     // Analyze for fraud
     final fraudResult = await _fraudDetector.analyze(_accumulatedText);
@@ -109,9 +204,11 @@ class CallAnalyzer {
 
   /// Stop listening
   void stopListening() {
+    _shouldKeepListening = false;
     if (_isListening) {
       _speech.stop();
       _isListening = false;
+      _isSpeechActive = false;
     }
   }
 

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
@@ -51,13 +53,15 @@ class PermissionService {
 
     bool allGranted = true;
 
-    // 1. Phone permission (READ_PHONE_STATE)
-    final phoneStatus = await Permission.phone.request();
-    if (!phoneStatus.isGranted) {
-      allGranted = false;
-      debugPrint('PermissionService: Phone permission not granted');
-    } else {
-      debugPrint('PermissionService: Phone permission granted');
+    // 1. Phone permission (READ_PHONE_STATE) - Android only
+    if (Platform.isAndroid) {
+      final phoneStatus = await Permission.phone.request();
+      if (!phoneStatus.isGranted) {
+        allGranted = false;
+        debugPrint('PermissionService: Phone permission not granted');
+      } else {
+        debugPrint('PermissionService: Phone permission granted');
+      }
     }
 
     // 2. Microphone permission (RECORD_AUDIO)
@@ -69,13 +73,15 @@ class PermissionService {
       debugPrint('PermissionService: Microphone permission granted');
     }
 
-    // 3. Overlay permission (SYSTEM_ALERT_WINDOW)
-    final overlayGranted = await requestOverlayPermission();
-    if (!overlayGranted) {
-      allGranted = false;
-      debugPrint('PermissionService: Overlay permission not granted');
-    } else {
-      debugPrint('PermissionService: Overlay permission granted');
+    // 3. Overlay permission (SYSTEM_ALERT_WINDOW) - Android only
+    if (Platform.isAndroid) {
+      final overlayGranted = await requestOverlayPermission();
+      if (!overlayGranted) {
+        allGranted = false;
+        debugPrint('PermissionService: Overlay permission not granted');
+      } else {
+        debugPrint('PermissionService: Overlay permission granted');
+      }
     }
 
     // 4. Notification permission
@@ -91,8 +97,9 @@ class PermissionService {
     return allGranted;
   }
 
-  /// Request overlay permission specifically
+  /// Request overlay permission specifically (Android only)
   Future<bool> requestOverlayPermission() async {
+    if (!Platform.isAndroid) return true;
     try {
       bool hasPermission = await FlutterOverlayWindow.isPermissionGranted();
       debugPrint('PermissionService: Overlay permission check = $hasPermission');
@@ -120,8 +127,9 @@ class PermissionService {
     }
   }
 
-  /// Check if overlay permission is granted
+  /// Check if overlay permission is granted (Android only)
   Future<bool> isOverlayPermissionGranted() async {
+    if (!Platform.isAndroid) return true;
     try {
       final granted = await FlutterOverlayWindow.isPermissionGranted();
       debugPrint('PermissionService: isOverlayPermissionGranted = $granted');
@@ -134,7 +142,7 @@ class PermissionService {
 
   /// Check if all critical permissions are granted
   Future<bool> areAllPermissionsGranted() async {
-    final phone = await Permission.phone.isGranted;
+    final phone = Platform.isAndroid ? await Permission.phone.isGranted : true;
     final mic = await Permission.microphone.isGranted;
     final overlay = await isOverlayPermissionGranted();
 

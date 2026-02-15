@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'core/utils/call_screening_bridge.dart';
@@ -69,6 +71,7 @@ class _MyAppState extends State<MyApp> {
   static const _channel = MethodChannel('call_screening_permission');
 
   static Future<void> requestEnable() async {
+    if (!Platform.isAndroid) return;
     try {
       await _channel.invokeMethod('request_call_screening');
     } catch (e) {
