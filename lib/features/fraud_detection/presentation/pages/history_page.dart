@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../bloc/detection_bloc.dart';
+import '../bloc/call_history_bloc.dart';
 import '../widgets/threat_card_widget.dart';
 import 'threat_details_page.dart';
 import '../../domain/entities/detection.dart';
@@ -12,7 +12,7 @@ class HistoryPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => sl<DetectionBloc>()..add(const LoadDetectionsHistoryEvent()),
+      create: (_) => sl<CallHistoryBloc>()..add(const LoadCallHistoryEvent()),
       child: const HistoryPageContent(),
     );
   }
@@ -23,22 +23,27 @@ class HistoryPageContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<DetectionBloc, DetectionState>(
+    return BlocConsumer<CallHistoryBloc, CallHistoryState>(
+      listener: (context, state) {
+        if (state is CallHistoryDeleted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("O'chirildi")),
+          );
+        } else if (state is CallHistoryFailure) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.message)),
+          );
+        }
+      },
       builder: (context, state) {
-        // Get database detections (empty if loading/initial/failure)
-        List<Detection> dbDetections = [];
+        List<Detection> allDetections = [];
         bool isLoading = false;
 
-        if (state is DetectionsHistoryLoaded) {
-          dbDetections = state.detections;
-        } else if (state is DetectionsHistoryLoading || state is DetectionInitial) {
+        if (state is CallHistoryLoaded) {
+          allDetections = state.detections;
+        } else if (state is CallHistoryLoading || state is CallHistoryInitial) {
           isLoading = true;
         }
-
-        final allDetections = [...dbDetections];
-
-        // Sort by timestamp (newest first)
-        allDetections.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
         if (allDetections.isEmpty && !isLoading) {
           return Center(
@@ -69,11 +74,10 @@ class HistoryPageContent extends StatelessWidget {
           );
         }
 
-        // Show list immediately with sample data, database data will merge in when ready
         return RefreshIndicator(
           onRefresh: () async {
-            context.read<DetectionBloc>().add(
-                  const LoadDetectionsHistoryEvent(),
+            context.read<CallHistoryBloc>().add(
+                  const LoadCallHistoryEvent(),
                 );
             await Future.delayed(const Duration(milliseconds: 500));
           },
@@ -84,21 +88,37 @@ class HistoryPageContent extends StatelessWidget {
                 itemCount: allDetections.length,
                 itemBuilder: (context, index) {
                   final detection = allDetections[index];
-                  return ThreatCardWidget(
-                    detection: detection,
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => ThreatDetailsPage(
-                            detection: detection,
-                          ),
-                        ),
-                      );
+                  return Dismissible(
+                    key: ValueKey(detection.id ?? index),
+                    direction: DismissDirection.endToStart,
+                    background: Container(
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.only(right: 20),
+                      color: Colors.red,
+                      child: const Icon(Icons.delete, color: Colors.white),
+                    ),
+                    onDismissed: (_) {
+                      if (detection.id != null) {
+                        context.read<CallHistoryBloc>().add(
+                              DeleteCallRecordEvent(detection.id.toString()),
+                            );
+                      }
                     },
+                    child: ThreatCardWidget(
+                      detection: detection,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => ThreatDetailsPage(
+                              detection: detection,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   );
                 },
               ),
-              // Show small loading indicator if database is still loading
               if (isLoading)
                 Positioned(
                   top: 8,
@@ -126,4 +146,3 @@ class HistoryPageContent extends StatelessWidget {
     );
   }
 }
-

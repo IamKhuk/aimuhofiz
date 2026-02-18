@@ -7,6 +7,7 @@ import '../services/call_state_listener.dart';
 import '../services/fraud_detector.dart';
 import '../services/threat_overlay_service.dart';
 import '../services/sound_alert_service.dart';
+import '../services/call_history_service.dart';
 
 /// Service that monitors phone calls and triggers fraud detection overlay
 class CallMonitoringService {
@@ -211,6 +212,24 @@ class CallMonitoringService {
       debugPrint('Detection saved to history: $phoneNumber, score: $score');
     } catch (e) {
       debugPrint('Error saving detection to history: $e');
+    }
+
+    // Also save to remote API
+    try {
+      final apiError = await CallHistoryService.saveCallRecord(
+        riskScore: fraudResult?.score ?? 0,
+        riskLevel: fraudResult?.riskLevel ?? 'SAFE',
+        warningMessage: fraudResult?.warningMessage ?? "Qo'ng'iroq tahlil qilindi",
+        keywordsFoundCount: fraudResult?.totalKeywords ?? 0,
+        clientId: phoneNumber,
+      );
+      if (apiError != null) {
+        debugPrint('API save error: $apiError');
+      } else {
+        debugPrint('Detection saved to API: $phoneNumber');
+      }
+    } catch (e) {
+      debugPrint('Error saving detection to API: $e');
     }
   }
 

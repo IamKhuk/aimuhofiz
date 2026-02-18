@@ -5,6 +5,7 @@ import 'home_page.dart';
 import 'history_page.dart';
 import 'chat_page.dart';
 import '../bloc/detection_bloc.dart';
+import '../bloc/call_history_bloc.dart';
 import '../../../../injection_container.dart';
 
 class MainNavigation extends StatefulWidget {
@@ -120,7 +121,7 @@ class _MainNavigationState extends State<MainNavigation> {
         );
       case 1:
         return BlocProvider(
-          create: (_) => sl<DetectionBloc>()..add(const LoadDetectionsHistoryEvent()),
+          create: (_) => sl<CallHistoryBloc>()..add(const LoadCallHistoryEvent()),
           child: const HistoryPageContent(),
         );
       case 2:

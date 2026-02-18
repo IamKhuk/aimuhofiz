@@ -6,6 +6,7 @@ import 'features/fraud_detection/domain/repositories/fraud_detection_repository.
 import 'features/fraud_detection/domain/usecases/detect_fraud.dart';
 import 'features/fraud_detection/domain/usecases/get_recent_detections.dart';
 import 'features/fraud_detection/presentation/bloc/detection_bloc.dart';
+import 'features/fraud_detection/presentation/bloc/call_history_bloc.dart';
 
 final sl = GetIt.instance;
 
@@ -15,6 +16,7 @@ Future<void> init() async {
         detectFraud: sl(),
         getRecentDetections: sl(),
       ));
+  sl.registerFactory(() => CallHistoryBloc());
 
   // Use cases
   sl.registerLazySingleton(() => DetectFraud(sl()));
