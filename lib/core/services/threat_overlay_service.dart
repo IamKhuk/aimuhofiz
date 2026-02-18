@@ -148,10 +148,11 @@ class ThreatOverlayService {
 
       print('_showSystemOverlay: Showing new overlay...');
 
-      // Show overlay with proper size and position
+      // Show overlay with responsive size — matchParent width (-1) and
+      // wrapContent height (-2) so the overlay adapts to any screen size.
       await overlay.FlutterOverlayWindow.showOverlay(
-        height: 220,
-        width: 340,
+        height: -2,
+        width: -1,
         alignment: overlay.OverlayAlignment.center,
         overlayTitle: "AI Muhofiz - Fraud Alert",
         flag: overlay.OverlayFlag.defaultFlag,

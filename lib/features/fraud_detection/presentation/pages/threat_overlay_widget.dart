@@ -143,7 +143,7 @@ class _ThreatOverlayWidgetState extends State<ThreatOverlayWidget>
         child: GestureDetector(
           onTap: _onTap,
           child: Container(
-            margin: const EdgeInsets.all(8),
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               color: const Color(0xFF1A1A2E),
               borderRadius: BorderRadius.circular(16),
@@ -188,6 +188,8 @@ class _ThreatOverlayWidgetState extends State<ThreatOverlayWidget>
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                             Text(
                               _phoneNumber ?? 'Noma\'lum',
@@ -195,6 +197,8 @@ class _ThreatOverlayWidgetState extends State<ThreatOverlayWidget>
                                 color: Colors.white70,
                                 fontSize: 10,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),
@@ -230,6 +234,8 @@ class _ThreatOverlayWidgetState extends State<ThreatOverlayWidget>
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
 
                   const SizedBox(height: 10),
@@ -262,38 +268,45 @@ class _ThreatOverlayWidgetState extends State<ThreatOverlayWidget>
                               ],
                             ),
                             const SizedBox(height: 4),
-                            // Progress bar
-                            Container(
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Stack(
-                                children: [
-                                  AnimatedContainer(
-                                    duration: const Duration(milliseconds: 500),
-                                    width:
-                                        (MediaQuery.of(context).size.width - 80) *
-                                            (score / 100),
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: [
-                                          riskColor.withOpacity(0.7),
-                                          riskColor,
-                                        ],
-                                      ),
-                                      borderRadius: BorderRadius.circular(4),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: riskColor.withOpacity(0.5),
-                                          blurRadius: 4,
-                                        ),
-                                      ],
-                                    ),
+                            // Progress bar — uses LayoutBuilder to adapt
+                            // to the actual available width on any device.
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                return Container(
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(4),
                                   ),
-                                ],
-                              ),
+                                  child: Stack(
+                                    children: [
+                                      AnimatedContainer(
+                                        duration:
+                                            const Duration(milliseconds: 500),
+                                        width: constraints.maxWidth *
+                                            (score / 100),
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            colors: [
+                                              riskColor.withOpacity(0.7),
+                                              riskColor,
+                                            ],
+                                          ),
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color:
+                                                  riskColor.withOpacity(0.5),
+                                              blurRadius: 4,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
                             ),
                           ],
                         ),

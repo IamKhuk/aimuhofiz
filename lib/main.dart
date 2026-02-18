@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'core/utils/call_screening_bridge.dart';
+import 'core/services/auth_service.dart';
+import 'features/fraud_detection/presentation/pages/login_page.dart';
 import 'features/fraud_detection/presentation/pages/main_navigation.dart';
 import 'features/fraud_detection/presentation/pages/ongoing_threat_page.dart';
 import 'core/services/threat_overlay_service.dart';
@@ -136,7 +138,7 @@ class _MyAppState extends State<MyApp> {
       debugShowCheckedModeBanner: false,
       theme: buildFraudDetectionTheme(isDark: true),
       themeMode: ThemeMode.dark,
-      home: const MainNavigation(),
+      home: const _AuthGate(),
       routes: {
         '/threat': (context) {
           return OngoingThreatPage(
@@ -145,6 +147,46 @@ class _MyAppState extends State<MyApp> {
           );
         },
       },
+    );
+  }
+}
+
+/// Checks stored auth token and routes to LoginPage or MainNavigation.
+class _AuthGate extends StatefulWidget {
+  const _AuthGate();
+
+  @override
+  State<_AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<_AuthGate> {
+  @override
+  void initState() {
+    super.initState();
+    _checkAuth();
+  }
+
+  Future<void> _checkAuth() async {
+    final loggedIn = await AuthService.isLoggedIn();
+
+    if (!mounted) return;
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) =>
+            loggedIn ? const MainNavigation() : const LoginPage(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Brief splash while checking auth
+    return const Scaffold(
+      backgroundColor: Color(0xFF0F1720),
+      body: Center(
+        child: CircularProgressIndicator(color: Color(0xFF34495E)),
+      ),
     );
   }
 }
