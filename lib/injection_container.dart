@@ -16,7 +16,7 @@ Future<void> init() async {
         detectFraud: sl(),
         getRecentDetections: sl(),
       ));
-  sl.registerFactory(() => CallHistoryBloc());
+  sl.registerFactory(() => CallHistoryBloc(localDb: sl()));
 
   // Use cases
   sl.registerLazySingleton(() => DetectFraud(sl()));

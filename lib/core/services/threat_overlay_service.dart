@@ -9,6 +9,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Service to manage floating threat overlay during calls
 class ThreatOverlayService {
   static bool _isOverlayActive = false;
+  static bool _isOverlayReady = false;
+  static String? _pendingShareData;
   static FraudResult? _currentThreat;
   static String? _currentPhoneNumber;
   static final FlutterLocalNotificationsPlugin _notificationsPlugin =
@@ -92,11 +94,18 @@ class ThreatOverlayService {
 
     // Send data to the running overlay via shareData — no close/reopen
     if (_isOverlayActive && Platform.isAndroid) {
+      final data = jsonEncode({
+        'fraud_result': fraudResult.toJson(),
+        'phone_number': phoneNumber,
+      });
+
+      if (!_isOverlayReady) {
+        // Overlay widget hasn't mounted yet — buffer the latest data
+        _pendingShareData = data;
+        return;
+      }
+
       try {
-        final data = jsonEncode({
-          'fraud_result': fraudResult.toJson(),
-          'phone_number': phoneNumber,
-        });
         await overlay.FlutterOverlayWindow.shareData(data);
       } catch (e) {
         print('Error sending data to overlay: $e');
@@ -162,10 +171,28 @@ class ThreatOverlayService {
       );
 
       _isOverlayActive = true;
-      print('_showSystemOverlay: Overlay shown successfully!');
+      _isOverlayReady = false;
+      print('_showSystemOverlay: Overlay shown, waiting for widget to mount...');
+
+      // Wait for overlay widget to mount and register its listener
+      await Future.delayed(const Duration(milliseconds: 600));
+      _isOverlayReady = true;
+
+      // Flush any data that was queued while the overlay was mounting
+      if (_pendingShareData != null) {
+        try {
+          await overlay.FlutterOverlayWindow.shareData(_pendingShareData!);
+        } catch (e) {
+          print('_showSystemOverlay: Error flushing pending data: $e');
+        }
+        _pendingShareData = null;
+      }
+
+      print('_showSystemOverlay: Overlay ready!');
     } catch (e) {
       print('_showSystemOverlay: Error showing overlay: $e');
       _isOverlayActive = false;
+      _isOverlayReady = false;
       // Fallback to notification if overlay fails
     }
   }
@@ -217,11 +244,13 @@ class ThreatOverlayService {
     if (_isOverlayActive && Platform.isAndroid) {
       try {
         await overlay.FlutterOverlayWindow.closeOverlay();
-        _isOverlayActive = false;
       } catch (e) {
         print('Error hiding threat overlay: $e');
       }
     }
+    _isOverlayActive = false;
+    _isOverlayReady = false;
+    _pendingShareData = null;
 
     // Cancel notification
     await _notificationsPlugin.cancel(1001);

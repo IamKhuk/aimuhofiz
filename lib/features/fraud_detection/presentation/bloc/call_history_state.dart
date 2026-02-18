@@ -15,15 +15,17 @@ class CallHistoryLoaded extends CallHistoryState {
   final List<Detection> detections;
   final int totalCount;
   final int currentPage;
+  final bool hasMore;
 
   const CallHistoryLoaded({
     required this.detections,
     required this.totalCount,
     required this.currentPage,
+    this.hasMore = false,
   });
 
   @override
-  List<Object?> get props => [detections, totalCount, currentPage];
+  List<Object?> get props => [detections, totalCount, currentPage, hasMore];
 }
 
 class CallHistoryFailure extends CallHistoryState {

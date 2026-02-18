@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
@@ -13,6 +14,9 @@ class FraudDetector {
   static const int maxWords = 2000;
 
   bool _isInitialized = false;
+
+  // Lock to prevent concurrent TFLite interpreter access
+  Future<void>? _analysisPending;
 
   /// Initialize the fraud detector
   /// Call this once when app starts
@@ -86,16 +90,48 @@ class FraudDetector {
   }
 
   /// Analyze text for fraud
-  /// Returns FraudResult with score and details
+  /// Returns FraudResult with score and details.
+  /// Uses a lock to prevent concurrent TFLite interpreter access.
   Future<FraudResult> analyze(String text) async {
+    // Wait for any in-flight analysis to finish before starting ours
+    while (_analysisPending != null) {
+      await _analysisPending;
+    }
+
+    final completer = Completer<void>();
+    _analysisPending = completer.future;
+
+    try {
+      return await _analyzeInternal(text);
+    } finally {
+      _analysisPending = null;
+      completer.complete();
+    }
+  }
+
+  Future<FraudResult> _analyzeInternal(String text) async {
     if (!_isInitialized) {
       await initialize();
+    }
+
+    // Skip ML inference for empty/whitespace-only text
+    final trimmedText = text.trim();
+    if (trimmedText.isEmpty) {
+      return FraudResult(
+        score: 0,
+        mlScore: 0,
+        isFraud: false,
+        riskLevel: 'SAFE',
+        keywordsFound: {},
+        totalKeywords: 0,
+        warningMessage: _getWarningMessage(0, {}),
+      );
     }
 
     // 1. ML Model prediction
     double mlScore = 0.0;
     try {
-      final sequence = _textToSequence(text);
+      final sequence = _textToSequence(trimmedText);
       final padded = _padSequence(sequence); // List<int> for Embedding lookup
 
       try {
@@ -124,7 +160,7 @@ class FraudDetector {
     }
 
     // 2. Keyword detection
-    final keywordMatches = _detectKeywords(text);
+    final keywordMatches = _detectKeywords(trimmedText);
 
     // 3. Calculate combined score
     double keywordScore = 0.0;

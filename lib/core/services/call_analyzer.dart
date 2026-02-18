@@ -12,10 +12,16 @@ class CallAnalyzer {
   bool _isListening = false;
   bool _isSpeechActive = false;
   bool _shouldKeepListening = false;
+  bool _isSpeechAvailable = false;
   String _resolvedLocale = 'uz_UZ';
 
   // Preferred locales in priority order: Uzbek, Russian, English
   static const _preferredLocales = ['uz_UZ', 'ru_RU', 'en_US'];
+
+  // Max characters to keep in accumulated text to prevent memory issues on long calls.
+  // ~10000 chars covers roughly 15-20 minutes of continuous speech — enough context
+  // for fraud detection while keeping memory bounded.
+  static const int _maxAccumulatedLength = 10000;
 
   /// Initialize the call analyzer
   /// Call this once when app starts
@@ -30,11 +36,13 @@ class CallAnalyzer {
       );
 
       if (!available) {
-        // Mark as initialized anyway so simulation still works
         debugPrint('CallAnalyzer: Speech recognition not available, simulation mode only');
+        _isSpeechAvailable = false;
         _isInitialized = true;
         return;
       }
+
+      _isSpeechAvailable = true;
 
       // Resolve the best available locale
       await _resolveLocale();
@@ -43,7 +51,7 @@ class CallAnalyzer {
       debugPrint('CallAnalyzer initialized successfully, locale: $_resolvedLocale');
     } catch (e) {
       debugPrint('Error initializing CallAnalyzer: $e');
-      // Initialize anyway for simulation support
+      _isSpeechAvailable = false;
       _isInitialized = true;
     }
   }
@@ -194,6 +202,13 @@ class CallAnalyzer {
       _accumulatedText = text;
     }
 
+    // Trim to keep only the most recent portion if text grows too long
+    if (_accumulatedText.length > _maxAccumulatedLength) {
+      _accumulatedText = _accumulatedText.substring(
+        _accumulatedText.length - _maxAccumulatedLength,
+      );
+    }
+
     // Analyze for fraud
     final fraudResult = await _fraudDetector.analyze(_accumulatedText);
 
@@ -222,6 +237,10 @@ class CallAnalyzer {
 
   /// Check if speech recognition is actively working
   bool get isSpeechActive => _isSpeechActive;
+
+  /// Whether real speech recognition is available (mic permission granted + engine present).
+  /// When false, audio analysis is not running — only simulation mode works.
+  bool get isSpeechAvailable => _isSpeechAvailable;
 
   /// Get accumulated text
   String get accumulatedText => _accumulatedText;

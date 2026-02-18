@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -16,6 +17,7 @@ class _ThreatOverlayWidgetState extends State<ThreatOverlayWidget>
     with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
+  StreamSubscription? _overlaySubscription;
   FraudResult? _fraudResult;
   String? _phoneNumber;
 
@@ -34,7 +36,7 @@ class _ThreatOverlayWidgetState extends State<ThreatOverlayWidget>
     );
 
     // Listen for data updates from main app
-    FlutterOverlayWindow.overlayListener.listen((data) {
+    _overlaySubscription = FlutterOverlayWindow.overlayListener.listen((data) {
       if (data != null && mounted) {
         try {
           final decoded = jsonDecode(data.toString());
@@ -64,6 +66,7 @@ class _ThreatOverlayWidgetState extends State<ThreatOverlayWidget>
 
   @override
   void dispose() {
+    _overlaySubscription?.cancel();
     _pulseController.dispose();
     super.dispose();
   }
@@ -118,14 +121,8 @@ class _ThreatOverlayWidgetState extends State<ThreatOverlayWidget>
     // Haptic feedback
     HapticFeedback.mediumImpact();
 
-    // Close overlay
+    // Close overlay and cancel notification (hideThreatOverlay calls closeOverlay internally)
     await ThreatOverlayService.hideThreatOverlay();
-
-    // Open the main app and navigate to threat page
-    await FlutterOverlayWindow.closeOverlay();
-
-    // Send intent to open app
-    await FlutterOverlayWindow.shareData('open_threat_page');
   }
 
   @override
@@ -206,7 +203,6 @@ class _ThreatOverlayWidgetState extends State<ThreatOverlayWidget>
                       GestureDetector(
                         onTap: () async {
                           await ThreatOverlayService.hideThreatOverlay();
-                          await FlutterOverlayWindow.closeOverlay();
                         },
                         child: Container(
                           padding: const EdgeInsets.all(4),

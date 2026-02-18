@@ -49,6 +49,14 @@ class AppDatabase extends _$AppDatabase {
         .write(const DetectionTablesCompanion(reported: Value(true)));
   }
 
+  Future<int> deleteDetection(int id) {
+    return (delete(detectionTables)..where((t) => t.id.equals(id))).go();
+  }
+
+  Future<int> deleteAllDetections() {
+    return delete(detectionTables).go();
+  }
+
   Future<void> seedSampleData() async {
     final count = await detectionTables.count().getSingle();
     if (count > 0) return;

@@ -18,8 +18,38 @@ class HistoryPage extends StatelessWidget {
   }
 }
 
-class HistoryPageContent extends StatelessWidget {
+class HistoryPageContent extends StatefulWidget {
   const HistoryPageContent({super.key});
+
+  @override
+  State<HistoryPageContent> createState() => _HistoryPageContentState();
+}
+
+class _HistoryPageContentState extends State<HistoryPageContent> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      final state = context.read<CallHistoryBloc>().state;
+      if (state is CallHistoryLoaded && state.hasMore) {
+        context.read<CallHistoryBloc>().add(const LoadMoreCallHistoryEvent());
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,9 +68,11 @@ class HistoryPageContent extends StatelessWidget {
       builder: (context, state) {
         List<Detection> allDetections = [];
         bool isLoading = false;
+        bool hasMore = false;
 
         if (state is CallHistoryLoaded) {
           allDetections = state.detections;
+          hasMore = state.hasMore;
         } else if (state is CallHistoryLoading || state is CallHistoryInitial) {
           isLoading = true;
         }
@@ -84,9 +116,23 @@ class HistoryPageContent extends StatelessWidget {
           child: Stack(
             children: [
               ListView.builder(
+                controller: _scrollController,
                 padding: const EdgeInsets.symmetric(vertical: 8),
-                itemCount: allDetections.length,
+                itemCount: allDetections.length + (hasMore ? 1 : 0),
                 itemBuilder: (context, index) {
+                  if (index >= allDetections.length) {
+                    return const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Center(
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                    );
+                  }
+
                   final detection = allDetections[index];
                   return Dismissible(
                     key: ValueKey(detection.id ?? index),

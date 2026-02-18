@@ -57,6 +57,10 @@ class DeleteCallRecordEvent extends CallHistoryEvent {
   List<Object?> get props => [recordId];
 }
 
+class LoadMoreCallHistoryEvent extends CallHistoryEvent {
+  const LoadMoreCallHistoryEvent();
+}
+
 class DeleteAllHistoryEvent extends CallHistoryEvent {
   const DeleteAllHistoryEvent();
 }

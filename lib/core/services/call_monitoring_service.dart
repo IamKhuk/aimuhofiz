@@ -17,6 +17,7 @@ class CallMonitoringService {
   bool _isMonitoring = false;
   bool _hasAutoEndedCall = false;
   FraudResult? _lastFraudResult;
+  DateTime? _callStartTime;
 
   static final CallMonitoringService _instance =
       CallMonitoringService._internal();
@@ -32,6 +33,9 @@ class CallMonitoringService {
 
     // Initialize call state listener
     await CallStateListener().initialize();
+
+    // Flush any API saves that failed in previous sessions
+    CallHistoryService.retryPendingSaves();
     debugPrint('CallMonitoringService: Initialization complete');
   }
 
@@ -50,12 +54,28 @@ class CallMonitoringService {
     _isMonitoring = true;
     _hasAutoEndedCall = false;
     _lastFraudResult = null;
+    _callStartTime = DateTime.now();
     debugPrint('Started monitoring call for: $phoneNumber');
 
     // Show initial overlay with 0% score (safe)
     debugPrint('Showing initial overlay...');
     await _showInitialOverlay(phoneNumber);
     debugPrint('Initial overlay shown');
+
+    // Warn user if microphone / speech recognition is not available
+    if (!_callAnalyzer.isSpeechAvailable) {
+      debugPrint('WARNING: Speech recognition not available — audio analysis disabled');
+      final warningResult = FraudResult(
+        score: 0,
+        mlScore: 0,
+        isFraud: false,
+        riskLevel: 'SAFE',
+        keywordsFound: {},
+        totalKeywords: 0,
+        warningMessage: "Mikrofon ruxsati berilmagan! Ovozli tahlil ishlamaydi.",
+      );
+      await _updateOverlay(warningResult, phoneNumber);
+    }
 
     // Start analytics (with or without audio)
     await _callAnalyzer.startListening(
@@ -170,19 +190,25 @@ class CallMonitoringService {
 
   /// Stop monitoring the current call and save detection to history
   Future<void> stopMonitoringCall() async {
-    if (_isMonitoring) {
+    if (!_isMonitoring) return;
+
+    try {
       _callAnalyzer.stopListening();
       _callAnalyzer.reset();
       await ThreatOverlayService.hideThreatOverlay();
 
       // Save the call detection to database for history
       await _saveDetectionToHistory();
-
+    } catch (e) {
+      debugPrint('Error during stopMonitoringCall: $e');
+    } finally {
+      // Always reset state so the service can handle future calls
       _isMonitoring = false;
       _currentPhoneNumber = null;
       _hasAutoEndedCall = false;
       _lastFraudResult = null;
-      print('Stopped monitoring call');
+      _callStartTime = null;
+      debugPrint('Stopped monitoring call');
     }
   }
 
@@ -190,6 +216,9 @@ class CallMonitoringService {
   Future<void> _saveDetectionToHistory() async {
     final phoneNumber = _currentPhoneNumber ?? 'Unknown';
     final fraudResult = _lastFraudResult;
+    final durationSeconds = _callStartTime != null
+        ? DateTime.now().difference(_callStartTime!).inSeconds
+        : 0;
 
     // Always save — even safe calls — so user sees full call history
     try {
@@ -221,6 +250,7 @@ class CallMonitoringService {
         riskLevel: fraudResult?.riskLevel ?? 'SAFE',
         warningMessage: fraudResult?.warningMessage ?? "Qo'ng'iroq tahlil qilindi",
         keywordsFoundCount: fraudResult?.totalKeywords ?? 0,
+        durationSeconds: durationSeconds,
         clientId: phoneNumber,
       );
       if (apiError != null) {
