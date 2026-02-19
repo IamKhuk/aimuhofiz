@@ -10,6 +10,7 @@ import 'features/fraud_detection/presentation/pages/ongoing_threat_page.dart';
 import 'core/services/threat_overlay_service.dart';
 import 'core/services/call_monitoring_service.dart';
 import 'core/services/sound_alert_service.dart';
+import 'core/services/audio_recording_service.dart';
 import 'core/services/permission_service.dart';
 import 'core/theme/fraud_detection_theme.dart';
 import 'injection_container.dart' as di;
@@ -29,6 +30,9 @@ void main() async {
 
   // Initialize call monitoring service
   await CallMonitoringService().initialize();
+
+  // Cleanup old recordings (>30 days)
+  AudioRecordingService.cleanupOldRecordings();
 
   runApp(const MyApp());
 }

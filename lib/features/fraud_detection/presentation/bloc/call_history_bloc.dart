@@ -5,6 +5,7 @@ import '../../domain/entities/detection.dart';
 import '../../data/models/call_history_record.dart';
 import '../../data/datasources/local_data_source.dart';
 import '../../../../core/services/call_history_service.dart';
+import '../../../../core/services/audio_analysis_service.dart';
 
 part 'call_history_event.dart';
 part 'call_history_state.dart';
@@ -20,6 +21,7 @@ class CallHistoryBloc extends Bloc<CallHistoryEvent, CallHistoryState> {
     on<SaveCallRecordEvent>(_onSaveRecord);
     on<DeleteCallRecordEvent>(_onDeleteRecord);
     on<DeleteAllHistoryEvent>(_onDeleteAll);
+    on<RequestAudioAnalysisEvent>(_onRequestAudioAnalysis);
   }
 
   static const int _pageSize = 20;
@@ -103,6 +105,8 @@ class CallHistoryBloc extends Bloc<CallHistoryEvent, CallHistoryState> {
                 reason: d.reason,
                 timestamp: d.timestamp,
                 reported: d.reported,
+                audioFilePath: d.audioFilePath,
+                serverAnalysisJson: d.serverAnalysisJson,
               ))
           .toList();
 
@@ -185,6 +189,28 @@ class CallHistoryBloc extends Bloc<CallHistoryEvent, CallHistoryState> {
       add(const LoadCallHistoryEvent());
     } else {
       emit(CallHistoryFailure(error));
+    }
+  }
+
+  Future<void> _onRequestAudioAnalysis(
+    RequestAudioAnalysisEvent event,
+    Emitter<CallHistoryState> emit,
+  ) async {
+    emit(AudioAnalysisInProgress(event.detectionId));
+
+    try {
+      final result = await AudioAnalysisService.analyzeAudio(event.audioFilePath);
+
+      if (result is ServerAnalysisResult) {
+        final jsonString = result.toJsonString();
+        await _localDb.updateServerAnalysis(event.detectionId, jsonString);
+        emit(AudioAnalysisComplete(event.detectionId, jsonString));
+      } else {
+        emit(CallHistoryFailure(result.toString()));
+      }
+    } catch (e) {
+      debugPrint('Audio analysis request failed: $e');
+      emit(CallHistoryFailure("Server tahlilida xatolik: $e"));
     }
   }
 }

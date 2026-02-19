@@ -1,11 +1,17 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../domain/entities/detection.dart';
 import '../../../../core/theme/fraud_detection_theme.dart';
 import '../utils/threat_utils.dart';
 import '../models/threat_details_model.dart';
 import '../data/sample_threat_data.dart';
+import '../bloc/call_history_bloc.dart';
 
-class ThreatDetailsPage extends StatelessWidget {
+class ThreatDetailsPage extends StatefulWidget {
   final Detection detection;
   final ThreatDetailsModel? threatDetails;
 
@@ -16,27 +22,69 @@ class ThreatDetailsPage extends StatelessWidget {
   });
 
   @override
+  State<ThreatDetailsPage> createState() => _ThreatDetailsPageState();
+}
+
+class _ThreatDetailsPageState extends State<ThreatDetailsPage> {
+  late AudioPlayer _audioPlayer;
+  Duration _position = Duration.zero;
+  Duration _duration = Duration.zero;
+  PlayerState _playerState = PlayerState.stopped;
+  String? _serverAnalysisJson;
+
+  @override
+  void initState() {
+    super.initState();
+    _audioPlayer = AudioPlayer();
+    _serverAnalysisJson = widget.detection.serverAnalysisJson;
+
+    _audioPlayer.onPositionChanged.listen((p) {
+      if (mounted) setState(() => _position = p);
+    });
+    _audioPlayer.onDurationChanged.listen((d) {
+      if (mounted) setState(() => _duration = d);
+    });
+    _audioPlayer.onPlayerStateChanged.listen((s) {
+      if (mounted) setState(() => _playerState = s);
+    });
+    _audioPlayer.onPlayerComplete.listen((_) {
+      if (mounted) {
+        setState(() {
+          _playerState = PlayerState.stopped;
+          _position = Duration.zero;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     // Try to find matching sample data first
     ThreatDetailsModel? sampleData;
     try {
       sampleData = SampleThreatData.allThreats.firstWhere(
-        (element) => element.detection.number == detection.number,
+        (element) => element.detection.number == widget.detection.number,
       );
     } catch (_) {}
 
     // Use provided threat details, or sample data, or create from detection
-    var details = threatDetails ??
+    var details = widget.threatDetails ??
         sampleData ??
         ThreatDetailsModel.fromDetection(
-          detection,
-          transcription: detection.reason,
-          languageDetected: ThreatUtils.detectLanguageCode(detection.number),
-          riskScore: detection.score,
-          riskLevel: _getRiskLevelString(detection.score),
+          widget.detection,
+          transcription: widget.detection.reason,
+          languageDetected: ThreatUtils.detectLanguageCode(widget.detection.number),
+          riskScore: widget.detection.score,
+          riskLevel: _getRiskLevelString(widget.detection.score),
           confidence: 0.0,
-          warningMessage: detection.reason,
-          flaggedReasons: threatDetails?.flaggedReasons,
+          warningMessage: widget.detection.reason,
+          flaggedReasons: widget.threatDetails?.flaggedReasons,
         );
 
     // Ensure Flagged Reasons, AI Analysis, and Timeline are always populated
@@ -47,54 +95,78 @@ class ThreatDetailsPage extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final String statusText = _getStatusText(riskLevel);
 
-    return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F1720) : (Colors.grey[100] ?? Colors.grey),
-      appBar: AppBar(
-        backgroundColor: isDark ? const Color(0xFF131d2b) : Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back,
-            color: isDark ? Colors.white : Colors.black,
+    return BlocListener<CallHistoryBloc, CallHistoryState>(
+      listener: (context, state) {
+        if (state is AudioAnalysisComplete &&
+            state.detectionId == widget.detection.id) {
+          setState(() {
+            _serverAnalysisJson = state.serverAnalysisJson;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Server tahlili tayyor!')),
+          );
+        } else if (state is CallHistoryFailure) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.message)),
+          );
+        }
+      },
+      child: Scaffold(
+        backgroundColor: isDark ? const Color(0xFF0F1720) : (Colors.grey[100] ?? Colors.grey),
+        appBar: AppBar(
+          backgroundColor: isDark ? const Color(0xFF131d2b) : Colors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(
+              Icons.arrow_back,
+              color: isDark ? Colors.white : Colors.black,
+            ),
+            onPressed: () => Navigator.of(context).pop(),
           ),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Text(
-          "Qo'ng'iroq Haqida",
-          style: TextStyle(
-            color: isDark ? Colors.white : Colors.black,
-            fontWeight: FontWeight.bold,
+          title: Text(
+            "Qo'ng'iroq Haqida",
+            style: TextStyle(
+              color: isDark ? Colors.white : Colors.black,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Caller Information Card
-            _buildCallerInfoCard(context, details, riskLevel, borderColor, statusText, isDark),
-            const SizedBox(height: 16),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Caller Information Card
+              _buildCallerInfoCard(context, details, riskLevel, borderColor, statusText, isDark),
+              const SizedBox(height: 16),
 
-            // Call Information Card
-            _buildCallInfoCard(context, details, isDark),
-            const SizedBox(height: 16),
+              // Call Information Card
+              _buildCallInfoCard(context, details, isDark),
+              const SizedBox(height: 16),
 
-            // Flagged Reasons Card - Always show
-            _buildFlaggedReasonsCard(context, details, isDark),
-            const SizedBox(height: 16),
+              // Audio Player Card
+              if (widget.detection.audioFilePath != null)
+                ...[
+                  _buildAudioPlayerCard(context, isDark),
+                  const SizedBox(height: 16),
+                ],
 
-            // AI Analysis Section - Always show
-            _buildAIAnalysisSection(context, details.aiAnalysis!, isDark),
-            const SizedBox(height: 16),
+              // Flagged Reasons Card - Always show
+              _buildFlaggedReasonsCard(context, details, isDark),
+              const SizedBox(height: 16),
 
-            // Call Timeline - Always show
-            _buildCallTimelineCard(context, details.timelineEvents!, isDark),
-            const SizedBox(height: 16),
+              // AI Analysis Section - Always show
+              _buildAIAnalysisSection(context, details.aiAnalysis!, isDark),
+              const SizedBox(height: 16),
 
-            // Actions Section
-            _buildActionsCard(context, details, isDark),
-          ],
+              // Call Timeline - Always show
+              _buildCallTimelineCard(context, details.timelineEvents!, isDark),
+              const SizedBox(height: 16),
+
+              // Actions Section
+              _buildActionsCard(context, details, isDark),
+            ],
+          ),
         ),
       ),
     );
@@ -120,6 +192,17 @@ class ThreatDetailsPage extends StatelessWidget {
 
   /// Ensures that Flagged Reasons, AI Analysis, and Timeline are always populated
   ThreatDetailsModel _ensureCompleteDetails(ThreatDetailsModel details) {
+    // If we have server analysis JSON, parse it and use real data
+    final analysisJson = _serverAnalysisJson;
+    if (analysisJson != null && analysisJson.isNotEmpty) {
+      try {
+        final json = jsonDecode(analysisJson) as Map<String, dynamic>;
+        return ThreatDetailsModel.fromJson(json, details.detection);
+      } catch (e) {
+        // Fall through to generated data if parsing fails
+      }
+    }
+
     // Generate flagged reasons if empty
     final flaggedReasons = details.flaggedReasons.isEmpty
         ? _generateFlaggedReasons(details.detection)
@@ -296,6 +379,212 @@ class ThreatDetailsPage extends StatelessWidget {
     ));
 
     return events;
+  }
+
+  Widget _buildAudioPlayerCard(BuildContext context, bool isDark) {
+    final cardColor = isDark ? const Color(0xFF131d2b) : (Colors.grey[200] ?? Colors.grey);
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final secondaryColor = isDark ? (Colors.grey[400] ?? Colors.grey) : (Colors.grey[600] ?? Colors.grey);
+    final audioPath = widget.detection.audioFilePath!;
+    final audioExists = File(audioPath).existsSync();
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.audiotrack, color: Colors.blue, size: 24),
+              const SizedBox(width: 8),
+              Text(
+                'Audio Yozuv',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (!audioExists)
+            Text(
+              'Audio fayl topilmadi',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: secondaryColor,
+                    fontStyle: FontStyle.italic,
+                  ),
+            )
+          else ...[
+            // Play/Pause + Progress
+            Row(
+              children: [
+                IconButton(
+                  icon: Icon(
+                    _playerState == PlayerState.playing
+                        ? Icons.pause_circle_filled
+                        : Icons.play_circle_filled,
+                    size: 48,
+                    color: Colors.blue,
+                  ),
+                  onPressed: () async {
+                    if (_playerState == PlayerState.playing) {
+                      await _audioPlayer.pause();
+                    } else {
+                      await _audioPlayer.play(DeviceFileSource(audioPath));
+                    }
+                  },
+                ),
+                Expanded(
+                  child: Column(
+                    children: [
+                      Slider(
+                        value: _duration.inMilliseconds > 0
+                            ? _position.inMilliseconds.toDouble().clamp(0, _duration.inMilliseconds.toDouble())
+                            : 0,
+                        max: _duration.inMilliseconds > 0
+                            ? _duration.inMilliseconds.toDouble()
+                            : 1,
+                        activeColor: Colors.blue,
+                        inactiveColor: Colors.blue.withValues(alpha: 0.3),
+                        onChanged: (value) {
+                          _audioPlayer.seek(Duration(milliseconds: value.toInt()));
+                        },
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              _formatDurationShort(_position),
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: secondaryColor,
+                                  ),
+                            ),
+                            Text(
+                              _formatDurationShort(_duration),
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: secondaryColor,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Share + Download buttons
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      await Share.shareXFiles(
+                        [XFile(audioPath)],
+                        text: "Qo'ng'iroq yozuvi - ${widget.detection.number}",
+                      );
+                    },
+                    icon: const Icon(Icons.share, size: 18),
+                    label: const Text('Ulashish'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.blue,
+                      side: const BorderSide(color: Colors.blue),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.all(12),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      await Share.shareXFiles(
+                        [XFile(audioPath)],
+                        text: "Qo'ng'iroq yozuvi - ${widget.detection.number}",
+                      );
+                    },
+                    icon: const Icon(Icons.download, size: 18),
+                    label: const Text('Yuklab olish'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.blue,
+                      side: const BorderSide(color: Colors.blue),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.all(12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            // Server analysis request button
+            if (_serverAnalysisJson == null) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: BlocBuilder<CallHistoryBloc, CallHistoryState>(
+                  builder: (context, state) {
+                    final isAnalyzing = state is AudioAnalysisInProgress &&
+                        state.detectionId == widget.detection.id;
+                    return ElevatedButton.icon(
+                      onPressed: isAnalyzing
+                          ? null
+                          : () {
+                              if (widget.detection.id != null) {
+                                context.read<CallHistoryBloc>().add(
+                                      RequestAudioAnalysisEvent(
+                                        detectionId: widget.detection.id!,
+                                        audioFilePath: audioPath,
+                                      ),
+                                    );
+                              }
+                            },
+                      icon: isAnalyzing
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.cloud_upload, size: 18),
+                      label: Text(isAnalyzing
+                          ? 'Tahlil qilinmoqda...'
+                          : 'Server tahlilini so\'rash'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.deepPurple,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.all(12),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _formatDurationShort(Duration d) {
+    final minutes = d.inMinutes;
+    final seconds = d.inSeconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
   Widget _buildCallerInfoCard(
@@ -877,7 +1166,13 @@ class ThreatDetailsPage extends StatelessWidget {
             width: double.infinity,
             child: ElevatedButton(
               onPressed: () {
-                // Handle download report
+                final audioPath = widget.detection.audioFilePath;
+                if (audioPath != null && File(audioPath).existsSync()) {
+                  Share.shareXFiles(
+                    [XFile(audioPath)],
+                    text: "Qo'ng'iroq hisoboti - ${widget.detection.number}",
+                  );
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).primaryColor,

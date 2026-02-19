@@ -14,6 +14,8 @@ class DetectionTables extends Table {
   TextColumn get reason => text()();
   DateTimeColumn get timestamp => dateTime()();
   BoolColumn get reported => boolean().withDefault(const Constant(false))();
+  TextColumn get audioFilePath => text().nullable()();
+  TextColumn get serverAnalysisJson => text().nullable()();
 }
 
 @DriftDatabase(tables: [DetectionTables])
@@ -21,7 +23,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration {
@@ -36,6 +38,10 @@ class AppDatabase extends _$AppDatabase {
           // Add index in migration if upgrading from version 1
           await customStatement('CREATE INDEX IF NOT EXISTS idx_detection_timestamp ON detection_tables (timestamp DESC)');
         }
+        if (from < 3) {
+          await customStatement('ALTER TABLE detection_tables ADD COLUMN audio_file_path TEXT');
+          await customStatement('ALTER TABLE detection_tables ADD COLUMN server_analysis_json TEXT');
+        }
       },
     );
   }
@@ -47,6 +53,16 @@ class AppDatabase extends _$AppDatabase {
   Future<int> markAsReported(int id) {
     return (update(detectionTables)..where((t) => t.id.equals(id)))
         .write(const DetectionTablesCompanion(reported: Value(true)));
+  }
+
+  Future<int> updateAudioFilePath(int id, String path) {
+    return (update(detectionTables)..where((t) => t.id.equals(id)))
+        .write(DetectionTablesCompanion(audioFilePath: Value(path)));
+  }
+
+  Future<int> updateServerAnalysis(int id, String json) {
+    return (update(detectionTables)..where((t) => t.id.equals(id)))
+        .write(DetectionTablesCompanion(serverAnalysisJson: Value(json)));
   }
 
   Future<int> deleteDetection(int id) {

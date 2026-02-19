@@ -43,3 +43,20 @@ class CallHistorySaved extends CallHistoryState {}
 class CallHistoryDeleting extends CallHistoryState {}
 
 class CallHistoryDeleted extends CallHistoryState {}
+
+class AudioAnalysisInProgress extends CallHistoryState {
+  final int detectionId;
+  const AudioAnalysisInProgress(this.detectionId);
+
+  @override
+  List<Object?> get props => [detectionId];
+}
+
+class AudioAnalysisComplete extends CallHistoryState {
+  final int detectionId;
+  final String serverAnalysisJson;
+  const AudioAnalysisComplete(this.detectionId, this.serverAnalysisJson);
+
+  @override
+  List<Object?> get props => [detectionId, serverAnalysisJson];
+}

@@ -64,3 +64,16 @@ class LoadMoreCallHistoryEvent extends CallHistoryEvent {
 class DeleteAllHistoryEvent extends CallHistoryEvent {
   const DeleteAllHistoryEvent();
 }
+
+class RequestAudioAnalysisEvent extends CallHistoryEvent {
+  final int detectionId;
+  final String audioFilePath;
+
+  const RequestAudioAnalysisEvent({
+    required this.detectionId,
+    required this.audioFilePath,
+  });
+
+  @override
+  List<Object?> get props => [detectionId, audioFilePath];
+}

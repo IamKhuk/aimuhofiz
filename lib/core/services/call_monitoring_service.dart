@@ -8,16 +8,20 @@ import '../services/fraud_detector.dart';
 import '../services/threat_overlay_service.dart';
 import '../services/sound_alert_service.dart';
 import '../services/call_history_service.dart';
+import '../services/audio_recording_service.dart';
+import '../services/audio_analysis_service.dart';
 
 /// Service that monitors phone calls and triggers fraud detection overlay
 class CallMonitoringService {
   final CallAnalyzer _callAnalyzer = CallAnalyzer();
   final SoundAlertService _soundService = SoundAlertService();
+  final AudioRecordingService _audioRecorder = AudioRecordingService();
   String? _currentPhoneNumber;
   bool _isMonitoring = false;
   bool _hasAutoEndedCall = false;
   FraudResult? _lastFraudResult;
   DateTime? _callStartTime;
+  String? _recordingFilePath;
 
   static final CallMonitoringService _instance =
       CallMonitoringService._internal();
@@ -55,7 +59,17 @@ class CallMonitoringService {
     _hasAutoEndedCall = false;
     _lastFraudResult = null;
     _callStartTime = DateTime.now();
+    _recordingFilePath = null;
     debugPrint('Started monitoring call for: $phoneNumber');
+
+    // Start audio recording
+    final recordingPath = await _audioRecorder.startRecording(phoneNumber);
+    if (recordingPath != null) {
+      _recordingFilePath = recordingPath;
+      debugPrint('Recording started: $recordingPath');
+    } else {
+      debugPrint('WARNING: Audio recording could not be started');
+    }
 
     // Show initial overlay with 0% score (safe)
     debugPrint('Showing initial overlay...');
@@ -197,6 +211,13 @@ class CallMonitoringService {
       _callAnalyzer.reset();
       await ThreatOverlayService.hideThreatOverlay();
 
+      // Stop audio recording
+      final recordingPath = await _audioRecorder.stopRecording();
+      if (recordingPath != null) {
+        _recordingFilePath = recordingPath;
+        debugPrint('Recording saved: $recordingPath');
+      }
+
       // Save the call detection to database for history
       await _saveDetectionToHistory();
     } catch (e) {
@@ -208,6 +229,7 @@ class CallMonitoringService {
       _hasAutoEndedCall = false;
       _lastFraudResult = null;
       _callStartTime = null;
+      _recordingFilePath = null;
       debugPrint('Stopped monitoring call');
     }
   }
@@ -219,8 +241,10 @@ class CallMonitoringService {
     final durationSeconds = _callStartTime != null
         ? DateTime.now().difference(_callStartTime!).inSeconds
         : 0;
+    final audioPath = _recordingFilePath;
 
     // Always save — even safe calls — so user sees full call history
+    int? localId;
     try {
       final db = GetIt.instance<AppDatabase>();
 
@@ -229,16 +253,17 @@ class CallMonitoringService {
           ? _buildReason(fraudResult)
           : "Qo'ng'iroq tahlil qilindi, xavf aniqlanmadi";
 
-      await db.insertDetection(
+      localId = await db.insertDetection(
         DetectionTablesCompanion(
           number: Value(phoneNumber),
           score: Value(score),
           reason: Value(reason),
           timestamp: Value(DateTime.now()),
           reported: const Value(false),
+          audioFilePath: Value(audioPath),
         ),
       );
-      debugPrint('Detection saved to history: $phoneNumber, score: $score');
+      debugPrint('Detection saved to history: $phoneNumber, score: $score, id: $localId');
     } catch (e) {
       debugPrint('Error saving detection to history: $e');
     }
@@ -260,6 +285,29 @@ class CallMonitoringService {
       }
     } catch (e) {
       debugPrint('Error saving detection to API: $e');
+    }
+
+    // Fire-and-forget: upload audio for server analysis
+    if (audioPath != null && localId != null) {
+      _uploadAndAnalyzeAudio(audioPath, localId);
+    }
+  }
+
+  /// Upload audio to server for analysis and update local DB with results.
+  Future<void> _uploadAndAnalyzeAudio(String audioPath, int localId) async {
+    try {
+      debugPrint('Uploading audio for server analysis: $audioPath');
+      final result = await AudioAnalysisService.analyzeAudio(audioPath);
+
+      if (result is ServerAnalysisResult) {
+        final db = GetIt.instance<AppDatabase>();
+        await db.updateServerAnalysis(localId, result.toJsonString());
+        debugPrint('Server analysis saved for detection #$localId');
+      } else {
+        debugPrint('Server analysis failed: $result');
+      }
+    } catch (e) {
+      debugPrint('Error uploading audio for analysis: $e');
     }
   }
 
@@ -289,6 +337,7 @@ class CallMonitoringService {
   /// Dispose resources
   void dispose() {
     _callAnalyzer.dispose();
+    _audioRecorder.dispose();
     _isMonitoring = false;
     _currentPhoneNumber = null;
   }

@@ -8,6 +8,8 @@ class DetectionModel extends Detection {
     required super.reason,
     required super.timestamp,
     super.reported,
+    super.audioFilePath,
+    super.serverAnalysisJson,
   });
 
   factory DetectionModel.fromJson(Map<String, dynamic> json) {
@@ -18,6 +20,8 @@ class DetectionModel extends Detection {
       reason: json['reason'],
       timestamp: DateTime.fromMillisecondsSinceEpoch(json['timestamp_ms']),
       reported: json['reported'] ?? false,
+      audioFilePath: json['audio_file_path'],
+      serverAnalysisJson: json['server_analysis_json'],
     );
   }
 
@@ -29,6 +33,8 @@ class DetectionModel extends Detection {
       'reason': reason,
       'timestamp_ms': timestamp.millisecondsSinceEpoch,
       'reported': reported,
+      'audio_file_path': audioFilePath,
+      'server_analysis_json': serverAnalysisJson,
     };
   }
 }

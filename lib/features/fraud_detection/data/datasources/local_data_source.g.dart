@@ -75,6 +75,28 @@ class $DetectionTablesTable extends DetectionTables
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _audioFilePathMeta = const VerificationMeta(
+    'audioFilePath',
+  );
+  @override
+  late final GeneratedColumn<String> audioFilePath = GeneratedColumn<String>(
+    'audio_file_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _serverAnalysisJsonMeta =
+      const VerificationMeta('serverAnalysisJson');
+  @override
+  late final GeneratedColumn<String> serverAnalysisJson =
+      GeneratedColumn<String>(
+        'server_analysis_json',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -83,6 +105,8 @@ class $DetectionTablesTable extends DetectionTables
     reason,
     timestamp,
     reported,
+    audioFilePath,
+    serverAnalysisJson,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -137,6 +161,24 @@ class $DetectionTablesTable extends DetectionTables
         reported.isAcceptableOrUnknown(data['reported']!, _reportedMeta),
       );
     }
+    if (data.containsKey('audio_file_path')) {
+      context.handle(
+        _audioFilePathMeta,
+        audioFilePath.isAcceptableOrUnknown(
+          data['audio_file_path']!,
+          _audioFilePathMeta,
+        ),
+      );
+    }
+    if (data.containsKey('server_analysis_json')) {
+      context.handle(
+        _serverAnalysisJsonMeta,
+        serverAnalysisJson.isAcceptableOrUnknown(
+          data['server_analysis_json']!,
+          _serverAnalysisJsonMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -170,6 +212,14 @@ class $DetectionTablesTable extends DetectionTables
         DriftSqlType.bool,
         data['${effectivePrefix}reported'],
       )!,
+      audioFilePath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}audio_file_path'],
+      ),
+      serverAnalysisJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}server_analysis_json'],
+      ),
     );
   }
 
@@ -186,6 +236,8 @@ class DetectionData extends DataClass implements Insertable<DetectionData> {
   final String reason;
   final DateTime timestamp;
   final bool reported;
+  final String? audioFilePath;
+  final String? serverAnalysisJson;
   const DetectionData({
     required this.id,
     required this.number,
@@ -193,6 +245,8 @@ class DetectionData extends DataClass implements Insertable<DetectionData> {
     required this.reason,
     required this.timestamp,
     required this.reported,
+    this.audioFilePath,
+    this.serverAnalysisJson,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -203,6 +257,12 @@ class DetectionData extends DataClass implements Insertable<DetectionData> {
     map['reason'] = Variable<String>(reason);
     map['timestamp'] = Variable<DateTime>(timestamp);
     map['reported'] = Variable<bool>(reported);
+    if (!nullToAbsent || audioFilePath != null) {
+      map['audio_file_path'] = Variable<String>(audioFilePath);
+    }
+    if (!nullToAbsent || serverAnalysisJson != null) {
+      map['server_analysis_json'] = Variable<String>(serverAnalysisJson);
+    }
     return map;
   }
 
@@ -214,6 +274,12 @@ class DetectionData extends DataClass implements Insertable<DetectionData> {
       reason: Value(reason),
       timestamp: Value(timestamp),
       reported: Value(reported),
+      audioFilePath: audioFilePath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(audioFilePath),
+      serverAnalysisJson: serverAnalysisJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(serverAnalysisJson),
     );
   }
 
@@ -229,6 +295,10 @@ class DetectionData extends DataClass implements Insertable<DetectionData> {
       reason: serializer.fromJson<String>(json['reason']),
       timestamp: serializer.fromJson<DateTime>(json['timestamp']),
       reported: serializer.fromJson<bool>(json['reported']),
+      audioFilePath: serializer.fromJson<String?>(json['audioFilePath']),
+      serverAnalysisJson: serializer.fromJson<String?>(
+        json['serverAnalysisJson'],
+      ),
     );
   }
   @override
@@ -241,6 +311,8 @@ class DetectionData extends DataClass implements Insertable<DetectionData> {
       'reason': serializer.toJson<String>(reason),
       'timestamp': serializer.toJson<DateTime>(timestamp),
       'reported': serializer.toJson<bool>(reported),
+      'audioFilePath': serializer.toJson<String?>(audioFilePath),
+      'serverAnalysisJson': serializer.toJson<String?>(serverAnalysisJson),
     };
   }
 
@@ -251,6 +323,8 @@ class DetectionData extends DataClass implements Insertable<DetectionData> {
     String? reason,
     DateTime? timestamp,
     bool? reported,
+    Value<String?> audioFilePath = const Value.absent(),
+    Value<String?> serverAnalysisJson = const Value.absent(),
   }) => DetectionData(
     id: id ?? this.id,
     number: number ?? this.number,
@@ -258,6 +332,12 @@ class DetectionData extends DataClass implements Insertable<DetectionData> {
     reason: reason ?? this.reason,
     timestamp: timestamp ?? this.timestamp,
     reported: reported ?? this.reported,
+    audioFilePath: audioFilePath.present
+        ? audioFilePath.value
+        : this.audioFilePath,
+    serverAnalysisJson: serverAnalysisJson.present
+        ? serverAnalysisJson.value
+        : this.serverAnalysisJson,
   );
   DetectionData copyWithCompanion(DetectionTablesCompanion data) {
     return DetectionData(
@@ -267,6 +347,12 @@ class DetectionData extends DataClass implements Insertable<DetectionData> {
       reason: data.reason.present ? data.reason.value : this.reason,
       timestamp: data.timestamp.present ? data.timestamp.value : this.timestamp,
       reported: data.reported.present ? data.reported.value : this.reported,
+      audioFilePath: data.audioFilePath.present
+          ? data.audioFilePath.value
+          : this.audioFilePath,
+      serverAnalysisJson: data.serverAnalysisJson.present
+          ? data.serverAnalysisJson.value
+          : this.serverAnalysisJson,
     );
   }
 
@@ -278,14 +364,24 @@ class DetectionData extends DataClass implements Insertable<DetectionData> {
           ..write('score: $score, ')
           ..write('reason: $reason, ')
           ..write('timestamp: $timestamp, ')
-          ..write('reported: $reported')
+          ..write('reported: $reported, ')
+          ..write('audioFilePath: $audioFilePath, ')
+          ..write('serverAnalysisJson: $serverAnalysisJson')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, number, score, reason, timestamp, reported);
+  int get hashCode => Object.hash(
+    id,
+    number,
+    score,
+    reason,
+    timestamp,
+    reported,
+    audioFilePath,
+    serverAnalysisJson,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -295,7 +391,9 @@ class DetectionData extends DataClass implements Insertable<DetectionData> {
           other.score == this.score &&
           other.reason == this.reason &&
           other.timestamp == this.timestamp &&
-          other.reported == this.reported);
+          other.reported == this.reported &&
+          other.audioFilePath == this.audioFilePath &&
+          other.serverAnalysisJson == this.serverAnalysisJson);
 }
 
 class DetectionTablesCompanion extends UpdateCompanion<DetectionData> {
@@ -305,6 +403,8 @@ class DetectionTablesCompanion extends UpdateCompanion<DetectionData> {
   final Value<String> reason;
   final Value<DateTime> timestamp;
   final Value<bool> reported;
+  final Value<String?> audioFilePath;
+  final Value<String?> serverAnalysisJson;
   const DetectionTablesCompanion({
     this.id = const Value.absent(),
     this.number = const Value.absent(),
@@ -312,6 +412,8 @@ class DetectionTablesCompanion extends UpdateCompanion<DetectionData> {
     this.reason = const Value.absent(),
     this.timestamp = const Value.absent(),
     this.reported = const Value.absent(),
+    this.audioFilePath = const Value.absent(),
+    this.serverAnalysisJson = const Value.absent(),
   });
   DetectionTablesCompanion.insert({
     this.id = const Value.absent(),
@@ -320,6 +422,8 @@ class DetectionTablesCompanion extends UpdateCompanion<DetectionData> {
     required String reason,
     required DateTime timestamp,
     this.reported = const Value.absent(),
+    this.audioFilePath = const Value.absent(),
+    this.serverAnalysisJson = const Value.absent(),
   }) : number = Value(number),
        score = Value(score),
        reason = Value(reason),
@@ -331,6 +435,8 @@ class DetectionTablesCompanion extends UpdateCompanion<DetectionData> {
     Expression<String>? reason,
     Expression<DateTime>? timestamp,
     Expression<bool>? reported,
+    Expression<String>? audioFilePath,
+    Expression<String>? serverAnalysisJson,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -339,6 +445,9 @@ class DetectionTablesCompanion extends UpdateCompanion<DetectionData> {
       if (reason != null) 'reason': reason,
       if (timestamp != null) 'timestamp': timestamp,
       if (reported != null) 'reported': reported,
+      if (audioFilePath != null) 'audio_file_path': audioFilePath,
+      if (serverAnalysisJson != null)
+        'server_analysis_json': serverAnalysisJson,
     });
   }
 
@@ -349,6 +458,8 @@ class DetectionTablesCompanion extends UpdateCompanion<DetectionData> {
     Value<String>? reason,
     Value<DateTime>? timestamp,
     Value<bool>? reported,
+    Value<String?>? audioFilePath,
+    Value<String?>? serverAnalysisJson,
   }) {
     return DetectionTablesCompanion(
       id: id ?? this.id,
@@ -357,6 +468,8 @@ class DetectionTablesCompanion extends UpdateCompanion<DetectionData> {
       reason: reason ?? this.reason,
       timestamp: timestamp ?? this.timestamp,
       reported: reported ?? this.reported,
+      audioFilePath: audioFilePath ?? this.audioFilePath,
+      serverAnalysisJson: serverAnalysisJson ?? this.serverAnalysisJson,
     );
   }
 
@@ -381,6 +494,12 @@ class DetectionTablesCompanion extends UpdateCompanion<DetectionData> {
     if (reported.present) {
       map['reported'] = Variable<bool>(reported.value);
     }
+    if (audioFilePath.present) {
+      map['audio_file_path'] = Variable<String>(audioFilePath.value);
+    }
+    if (serverAnalysisJson.present) {
+      map['server_analysis_json'] = Variable<String>(serverAnalysisJson.value);
+    }
     return map;
   }
 
@@ -392,7 +511,9 @@ class DetectionTablesCompanion extends UpdateCompanion<DetectionData> {
           ..write('score: $score, ')
           ..write('reason: $reason, ')
           ..write('timestamp: $timestamp, ')
-          ..write('reported: $reported')
+          ..write('reported: $reported, ')
+          ..write('audioFilePath: $audioFilePath, ')
+          ..write('serverAnalysisJson: $serverAnalysisJson')
           ..write(')'))
         .toString();
   }
@@ -419,6 +540,8 @@ typedef $$DetectionTablesTableCreateCompanionBuilder =
       required String reason,
       required DateTime timestamp,
       Value<bool> reported,
+      Value<String?> audioFilePath,
+      Value<String?> serverAnalysisJson,
     });
 typedef $$DetectionTablesTableUpdateCompanionBuilder =
     DetectionTablesCompanion Function({
@@ -428,6 +551,8 @@ typedef $$DetectionTablesTableUpdateCompanionBuilder =
       Value<String> reason,
       Value<DateTime> timestamp,
       Value<bool> reported,
+      Value<String?> audioFilePath,
+      Value<String?> serverAnalysisJson,
     });
 
 class $$DetectionTablesTableFilterComposer
@@ -466,6 +591,16 @@ class $$DetectionTablesTableFilterComposer
 
   ColumnFilters<bool> get reported => $composableBuilder(
     column: $table.reported,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get audioFilePath => $composableBuilder(
+    column: $table.audioFilePath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get serverAnalysisJson => $composableBuilder(
+    column: $table.serverAnalysisJson,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -508,6 +643,16 @@ class $$DetectionTablesTableOrderingComposer
     column: $table.reported,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get audioFilePath => $composableBuilder(
+    column: $table.audioFilePath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get serverAnalysisJson => $composableBuilder(
+    column: $table.serverAnalysisJson,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$DetectionTablesTableAnnotationComposer
@@ -536,6 +681,16 @@ class $$DetectionTablesTableAnnotationComposer
 
   GeneratedColumn<bool> get reported =>
       $composableBuilder(column: $table.reported, builder: (column) => column);
+
+  GeneratedColumn<String> get audioFilePath => $composableBuilder(
+    column: $table.audioFilePath,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get serverAnalysisJson => $composableBuilder(
+    column: $table.serverAnalysisJson,
+    builder: (column) => column,
+  );
 }
 
 class $$DetectionTablesTableTableManager
@@ -577,6 +732,8 @@ class $$DetectionTablesTableTableManager
                 Value<String> reason = const Value.absent(),
                 Value<DateTime> timestamp = const Value.absent(),
                 Value<bool> reported = const Value.absent(),
+                Value<String?> audioFilePath = const Value.absent(),
+                Value<String?> serverAnalysisJson = const Value.absent(),
               }) => DetectionTablesCompanion(
                 id: id,
                 number: number,
@@ -584,6 +741,8 @@ class $$DetectionTablesTableTableManager
                 reason: reason,
                 timestamp: timestamp,
                 reported: reported,
+                audioFilePath: audioFilePath,
+                serverAnalysisJson: serverAnalysisJson,
               ),
           createCompanionCallback:
               ({
@@ -593,6 +752,8 @@ class $$DetectionTablesTableTableManager
                 required String reason,
                 required DateTime timestamp,
                 Value<bool> reported = const Value.absent(),
+                Value<String?> audioFilePath = const Value.absent(),
+                Value<String?> serverAnalysisJson = const Value.absent(),
               }) => DetectionTablesCompanion.insert(
                 id: id,
                 number: number,
@@ -600,6 +761,8 @@ class $$DetectionTablesTableTableManager
                 reason: reason,
                 timestamp: timestamp,
                 reported: reported,
+                audioFilePath: audioFilePath,
+                serverAnalysisJson: serverAnalysisJson,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

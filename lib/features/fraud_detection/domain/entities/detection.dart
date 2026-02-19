@@ -7,6 +7,8 @@ class Detection extends Equatable {
   final String reason;
   final DateTime timestamp;
   final bool reported;
+  final String? audioFilePath;
+  final String? serverAnalysisJson;
 
   const Detection({
     this.id,
@@ -15,8 +17,10 @@ class Detection extends Equatable {
     required this.reason,
     required this.timestamp,
     this.reported = false,
+    this.audioFilePath,
+    this.serverAnalysisJson,
   });
 
   @override
-  List<Object?> get props => [id, number, score, reason, timestamp, reported];
+  List<Object?> get props => [id, number, score, reason, timestamp, reported, audioFilePath, serverAnalysisJson];
 }

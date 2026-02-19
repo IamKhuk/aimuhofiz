@@ -11,6 +11,8 @@ class CallHistoryRecord {
   final String analysisType;
   final String? clientId;
   final DateTime createdAt;
+  final String? audioUrl;
+  final Map<String, dynamic>? serverAnalysis;
 
   const CallHistoryRecord({
     required this.id,
@@ -23,6 +25,8 @@ class CallHistoryRecord {
     required this.analysisType,
     this.clientId,
     required this.createdAt,
+    this.audioUrl,
+    this.serverAnalysis,
   });
 
   factory CallHistoryRecord.fromJson(Map<String, dynamic> json) {
@@ -39,6 +43,8 @@ class CallHistoryRecord {
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : DateTime.now(),
+      audioUrl: json['audio_url'] as String?,
+      serverAnalysis: json['server_analysis'] as Map<String, dynamic>?,
     );
   }
 
