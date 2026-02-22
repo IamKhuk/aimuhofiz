@@ -2,10 +2,11 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config/api_config.dart';
 import 'auth_service.dart';
 
 class CallHistoryService {
-  static const String _baseUrl = 'https://abulqosim0227.jprq.live';
+  static const String _baseUrl = ApiConfig.baseUrl;
   static const String _retryQueueKey = 'pending_api_saves';
   static bool _isFlushingQueue = false;
 

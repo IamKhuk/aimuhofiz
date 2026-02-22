@@ -4,12 +4,13 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/api_config.dart';
 import '../models/sip_config.dart';
 import 'auth_service.dart';
 
 /// Fetches and caches SIP configuration from the backend API.
 class SipConfigService {
-  static const String _baseUrl = 'https://abulqosim0227.jprq.live';
+  static const String _baseUrl = ApiConfig.baseUrl;
   static const String _cachedConfigKey = 'cached_sip_config';
 
   /// Fetch SIP config from the server, falling back to cached config.

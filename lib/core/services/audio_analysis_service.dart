@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import '../config/api_config.dart';
 import 'auth_service.dart';
 
 /// Result of server-side audio analysis.
@@ -49,11 +50,11 @@ class ServerAnalysisResult {
 
 /// Service for uploading audio files to the server for advanced analysis.
 class AudioAnalysisService {
-  static const String _baseUrl = 'https://abulqosim0227.jprq.live';
+  static const String _baseUrl = ApiConfig.baseUrl;
 
   /// Upload an audio file for server-side analysis.
   /// Returns [ServerAnalysisResult] on success, or error string on failure.
-  static Future<Object> analyzeAudio(String audioFilePath) async {
+  static Future<Object> analyzeAudio(String audioFilePath, {String language = 'uz'}) async {
     try {
       final file = File(audioFilePath);
       if (!await file.exists()) {
@@ -64,16 +65,18 @@ class AudioAnalysisService {
 
       final request = http.MultipartRequest(
         'POST',
-        Uri.parse('$_baseUrl/api/v1/analysis/audio'),
+        Uri.parse('$_baseUrl/api/v1/analyze/file'),
       );
 
+      request.headers['X-API-Key'] = ApiConfig.apiKey;
       if (token != null) {
         request.headers['Authorization'] = 'Bearer $token';
       }
 
       request.files.add(
-        await http.MultipartFile.fromPath('audio', audioFilePath),
+        await http.MultipartFile.fromPath('file', audioFilePath),
       );
+      request.fields['language'] = language;
 
       final streamedResponse = await request.send().timeout(
         const Duration(minutes: 5),

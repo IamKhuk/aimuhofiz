@@ -3,11 +3,12 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/api_config.dart';
 import 'sip_config_service.dart';
 import 'sip_service.dart';
 
 class AuthService {
-  static const String _baseUrl = 'https://abulqosim0227.jprq.live';
+  static const String _baseUrl = ApiConfig.baseUrl;
   static const String _accessTokenKey = 'access_token';
   static const String _refreshTokenKey = 'refresh_token';
   static const String _usernameKey = 'auth_username';
