@@ -140,24 +140,24 @@ class _ThreatOverlayWidgetState extends State<ThreatOverlayWidget>
         child: GestureDetector(
           onTap: _onTap,
           child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
             decoration: BoxDecoration(
               color: const Color(0xFF1A1A2E),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(
                 color: borderColor,
-                width: 2.5,
+                width: 2,
               ),
               boxShadow: [
                 BoxShadow(
                   color: riskColor.withOpacity(0.4),
-                  blurRadius: 16,
-                  spreadRadius: 2,
+                  blurRadius: 12,
+                  spreadRadius: 1,
                 ),
               ],
             ),
             child: Padding(
-              padding: const EdgeInsets.all(12.0),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -166,14 +166,14 @@ class _ThreatOverlayWidgetState extends State<ThreatOverlayWidget>
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(6),
+                        padding: const EdgeInsets.all(5),
                         decoration: BoxDecoration(
                           color: riskColor.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(7),
                         ),
-                        child: Icon(icon, color: riskColor, size: 20),
+                        child: Icon(icon, color: riskColor, size: 18),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -220,21 +220,21 @@ class _ThreatOverlayWidgetState extends State<ThreatOverlayWidget>
                     ],
                   ),
 
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 6),
 
                   // Warning message
                   Text(
                     message,
                     style: TextStyle(
                       color: riskColor,
-                      fontSize: 13,
+                      fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
 
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 6),
 
                   // Progress bar with score
                   Row(
@@ -257,7 +257,7 @@ class _ThreatOverlayWidgetState extends State<ThreatOverlayWidget>
                                   '${score.toStringAsFixed(0)}%',
                                   style: TextStyle(
                                     color: riskColor,
-                                    fontSize: 14,
+                                    fontSize: 12,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -269,7 +269,7 @@ class _ThreatOverlayWidgetState extends State<ThreatOverlayWidget>
                             LayoutBuilder(
                               builder: (context, constraints) {
                                 return Container(
-                                  height: 8,
+                                  height: 6,
                                   decoration: BoxDecoration(
                                     color: Colors.white.withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(4),
@@ -310,7 +310,7 @@ class _ThreatOverlayWidgetState extends State<ThreatOverlayWidget>
                     ],
                   ),
 
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 4),
 
                   // Tap hint
                   Center(
@@ -318,7 +318,7 @@ class _ThreatOverlayWidgetState extends State<ThreatOverlayWidget>
                       'Bosib batafsil ko\'ring',
                       style: TextStyle(
                         color: riskColor.withOpacity(0.7),
-                        fontSize: 9,
+                        fontSize: 8,
                         fontStyle: FontStyle.italic,
                       ),
                     ),
