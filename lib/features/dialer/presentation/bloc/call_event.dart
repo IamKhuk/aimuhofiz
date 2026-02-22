@@ -87,6 +87,16 @@ class CallStateChangedEvent extends CallEvent {
   List<Object?> get props => [event];
 }
 
+/// Server-side real-time stream result received via WebSocket.
+class ServerStreamResultEvent extends CallEvent {
+  final ServerStreamResult result;
+
+  const ServerStreamResultEvent(this.result);
+
+  @override
+  List<Object?> get props => [result];
+}
+
 /// Internal event: periodic timer tick for call duration tracking.
 class CallTimerTickEvent extends CallEvent {
   const CallTimerTickEvent();

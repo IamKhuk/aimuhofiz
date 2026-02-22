@@ -9,6 +9,7 @@ import '../../../../core/models/sip_call_event.dart';
 import '../../../../core/services/call_monitoring_service.dart';
 import '../../../../core/services/fraud_detector.dart';
 import '../../../../core/services/sip_service.dart';
+import '../../../../core/services/websocket_streaming_service.dart';
 
 part 'call_event.dart';
 part 'call_state.dart';
@@ -34,6 +35,7 @@ class CallBloc extends Bloc<CallEvent, CallBlocState> {
     on<ToggleHoldEvent>(_onToggleHold);
     on<SendDtmfEvent>(_onSendDtmf);
     on<FraudScoreUpdatedEvent>(_onFraudScoreUpdated);
+    on<ServerStreamResultEvent>(_onServerStreamResult);
     on<CallStateChangedEvent>(_onCallStateChanged);
     on<CallTimerTickEvent>(_onCallTimerTick);
 
@@ -128,6 +130,18 @@ class CallBloc extends Bloc<CallEvent, CallBlocState> {
     final currentState = state;
     if (currentState is CallConnectedState) {
       emit(currentState.copyWith(fraudResult: event.result));
+    }
+  }
+
+  void _onServerStreamResult(
+    ServerStreamResultEvent event,
+    Emitter<CallBlocState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is CallConnectedState) {
+      emit(currentState.copyWith(
+        serverStreamResult: event.result,
+      ));
     }
   }
 
@@ -237,6 +251,10 @@ class CallBloc extends Bloc<CallEvent, CallBlocState> {
     // Set callback so fraud results flow into CallBloc
     monitoringService.onFraudDetected = (FraudResult result) {
       add(FraudScoreUpdatedEvent(result));
+    };
+    // Set callback for server-side streaming results
+    monitoringService.onServerStreamResult = (ServerStreamResult result) {
+      add(ServerStreamResultEvent(result));
     };
     monitoringService.startMonitoringCall(remoteNumber, direction: direction);
   }

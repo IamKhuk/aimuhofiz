@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
@@ -10,17 +12,30 @@ import '../services/sound_alert_service.dart';
 import '../services/call_history_service.dart';
 import '../services/audio_recording_service.dart';
 import '../services/audio_analysis_service.dart';
+import '../services/websocket_streaming_service.dart';
 
 /// Callback for fraud detection results — used by CallBloc to update UI.
 typedef FraudDetectedCallback = void Function(FraudResult result);
 
+/// Callback for server stream results — used by CallBloc to show server risk.
+typedef ServerStreamCallback = void Function(ServerStreamResult result);
+
 /// Service that monitors phone calls and triggers fraud detection.
 /// In VoIP mode: called by SipService events, updates CallBloc via callback.
 /// In fallback mode: uses overlay for fraud display.
+///
+/// Runs two parallel fraud detection pipelines:
+/// 1. **Local**: SpeechToText → CallAnalyzer → FraudDetector (TFLite ML)
+/// 2. **Server**: WebSocket streaming → server-side analysis → ServerStreamResult
+///
+/// The final reported score is the **higher** of the two pipelines.
 class CallMonitoringService {
   final CallAnalyzer _callAnalyzer = CallAnalyzer();
   final SoundAlertService _soundService = SoundAlertService();
   final AudioRecordingService _audioRecorder = AudioRecordingService();
+  final WebSocketStreamingService _wsService = WebSocketStreamingService();
+  StreamSubscription<ServerStreamResult>? _wsResultSubscription;
+  double _lastServerRiskScore = 0;
   String? _currentPhoneNumber;
   bool _isMonitoring = false;
   bool _hasAutoEndedCall = false;
@@ -32,6 +47,9 @@ class CallMonitoringService {
 
   /// External callback for fraud results (set by CallBloc).
   FraudDetectedCallback? onFraudDetected;
+
+  /// External callback for server stream results (set by CallBloc).
+  ServerStreamCallback? onServerStreamResult;
 
   /// Whether to use the overlay (fallback when not default dialer).
   bool useOverlay = false;
@@ -92,6 +110,9 @@ class CallMonitoringService {
       await _showInitialOverlay(phoneNumber);
     }
 
+    // Start server-side real-time streaming (non-fatal if it fails)
+    _startWebSocketStreaming();
+
     // Warn user if microphone / speech recognition is not available
     if (!_callAnalyzer.isSpeechAvailable) {
       debugPrint('WARNING: Speech recognition not available — audio analysis disabled');
@@ -140,14 +161,115 @@ class CallMonitoringService {
   }
 
   /// Notify fraud result to CallBloc callback and/or overlay.
+  /// Merges with server risk score — takes the higher of the two.
   void _notifyFraudResult(FraudResult fraudResult, String phoneNumber) {
+    final mergedResult = _mergeWithServerScore(fraudResult);
+
     // Notify CallBloc (VoIP in-call UI)
-    onFraudDetected?.call(fraudResult);
+    onFraudDetected?.call(mergedResult);
 
     // Update overlay if in fallback mode
     if (useOverlay) {
-      _updateOverlay(fraudResult, phoneNumber);
+      _updateOverlay(mergedResult, phoneNumber);
     }
+  }
+
+  /// Merge local fraud result with server risk score — take the higher score.
+  FraudResult _mergeWithServerScore(FraudResult localResult) {
+    if (_lastServerRiskScore <= localResult.score) return localResult;
+
+    // Server has a higher score — elevate the local result
+    final serverScore = _lastServerRiskScore;
+    return FraudResult(
+      score: serverScore,
+      mlScore: localResult.mlScore,
+      isFraud: serverScore >= 70,
+      riskLevel: _serverRiskLevel(serverScore),
+      keywordsFound: localResult.keywordsFound,
+      totalKeywords: localResult.totalKeywords,
+      warningMessage: localResult.warningMessage,
+    );
+  }
+
+  String _serverRiskLevel(double score) {
+    if (score >= 80) return 'DANGER';
+    if (score >= 70) return 'HIGH';
+    if (score >= 50) return 'MEDIUM';
+    if (score >= 30) return 'LOW';
+    return 'SAFE';
+  }
+
+  /// Start WebSocket streaming for server-side real-time analysis.
+  /// Non-fatal: if it fails, local pipeline continues unaffected.
+  void _startWebSocketStreaming() {
+    _lastServerRiskScore = 0;
+    try {
+      _wsService.startStreaming();
+      _wsResultSubscription = _wsService.resultStream.listen(
+        _onServerStreamResult,
+        onError: (e) {
+          debugPrint('WebSocket stream error (non-fatal): $e');
+        },
+      );
+    } catch (e) {
+      debugPrint('Failed to start WebSocket streaming (non-fatal): $e');
+    }
+  }
+
+  /// Handle a result from the server's real-time streaming endpoint.
+  void _onServerStreamResult(ServerStreamResult result) {
+    debugPrint(
+      'Server stream: chunk=${result.chunkId} risk=${result.currentRiskScore} '
+      'action=${result.action} terminate=${result.shouldTerminate}',
+    );
+
+    _lastServerRiskScore = result.currentRiskScore;
+
+    // Forward raw server result to CallBloc for UI display
+    onServerStreamResult?.call(result);
+
+    // Feed server transcription into local analyzer for boosted detection
+    if (result.partialTranscription != null &&
+        result.partialTranscription!.isNotEmpty) {
+      _callAnalyzer.processText(result.partialTranscription!);
+    }
+
+    // Handle server-initiated call termination
+    if (result.shouldTerminate && !_hasAutoEndedCall) {
+      _hasAutoEndedCall = true;
+      debugPrint('Server requested call termination (risk=${result.currentRiskScore})');
+      _autoEndCall(FraudResult(
+        score: result.currentRiskScore,
+        mlScore: 0,
+        isFraud: true,
+        riskLevel: result.riskLevel.toUpperCase(),
+        keywordsFound: {},
+        totalKeywords: 0,
+        warningMessage: "XAVFLI! Server tahlili asosida qo'ng'iroq tugatilmoqda!",
+      ));
+    }
+
+    // If server score is higher than local, re-notify with merged score
+    if (_lastFraudResult != null &&
+        result.currentRiskScore > _lastFraudResult!.score) {
+      final merged = _mergeWithServerScore(_lastFraudResult!);
+      onFraudDetected?.call(merged);
+
+      // Check auto-end threshold with merged score
+      if (merged.score >= 95 && !_hasAutoEndedCall) {
+        _hasAutoEndedCall = true;
+        debugPrint('DANGER! Auto-ending call due to merged server score: ${merged.score}');
+        _autoEndCall(merged);
+      }
+    }
+  }
+
+  /// Stop WebSocket streaming.
+  Future<void> _stopWebSocketStreaming() async {
+    await _wsResultSubscription?.cancel();
+    _wsResultSubscription = null;
+    await _wsService.stopStreaming();
+    _lastServerRiskScore = 0;
   }
 
   /// Show initial overlay when call starts (fallback mode)
@@ -229,6 +351,9 @@ class CallMonitoringService {
       _callAnalyzer.stopListening();
       _callAnalyzer.reset();
 
+      // Stop server-side streaming
+      await _stopWebSocketStreaming();
+
       if (useOverlay) {
         await ThreatOverlayService.hideThreatOverlay();
       }
@@ -254,7 +379,9 @@ class CallMonitoringService {
       _recordingFilePath = null;
       _callDirection = 'outgoing';
       _contactName = null;
+      _lastServerRiskScore = 0;
       onFraudDetected = null;
+      onServerStreamResult = null;
       debugPrint('Stopped monitoring call');
     }
   }
@@ -368,6 +495,8 @@ class CallMonitoringService {
   void dispose() {
     _callAnalyzer.dispose();
     _audioRecorder.dispose();
+    _wsService.dispose();
+    _wsResultSubscription?.cancel();
     _isMonitoring = false;
     _currentPhoneNumber = null;
   }

@@ -40,6 +40,7 @@ class CallConnectedState extends CallBlocState {
   final bool isSpeakerOn;
   final bool isOnHold;
   final FraudResult? fraudResult;
+  final ServerStreamResult? serverStreamResult;
 
   const CallConnectedState({
     required this.remoteNumber,
@@ -48,6 +49,7 @@ class CallConnectedState extends CallBlocState {
     this.isSpeakerOn = false,
     this.isOnHold = false,
     this.fraudResult,
+    this.serverStreamResult,
   });
 
   CallConnectedState copyWith({
@@ -57,6 +59,7 @@ class CallConnectedState extends CallBlocState {
     bool? isSpeakerOn,
     bool? isOnHold,
     FraudResult? fraudResult,
+    ServerStreamResult? serverStreamResult,
   }) {
     return CallConnectedState(
       remoteNumber: remoteNumber ?? this.remoteNumber,
@@ -65,6 +68,7 @@ class CallConnectedState extends CallBlocState {
       isSpeakerOn: isSpeakerOn ?? this.isSpeakerOn,
       isOnHold: isOnHold ?? this.isOnHold,
       fraudResult: fraudResult ?? this.fraudResult,
+      serverStreamResult: serverStreamResult ?? this.serverStreamResult,
     );
   }
 
@@ -76,6 +80,7 @@ class CallConnectedState extends CallBlocState {
         isSpeakerOn,
         isOnHold,
         fraudResult,
+        serverStreamResult,
       ];
 }
 
