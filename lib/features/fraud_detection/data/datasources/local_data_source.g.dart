@@ -97,6 +97,68 @@ class $DetectionTablesTable extends DetectionTables
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _durationSecondsMeta = const VerificationMeta(
+    'durationSeconds',
+  );
+  @override
+  late final GeneratedColumn<int> durationSeconds = GeneratedColumn<int>(
+    'duration_seconds',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _callDirectionMeta = const VerificationMeta(
+    'callDirection',
+  );
+  @override
+  late final GeneratedColumn<String> callDirection = GeneratedColumn<String>(
+    'call_direction',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('outgoing'),
+  );
+  static const VerificationMeta _callTypeMeta = const VerificationMeta(
+    'callType',
+  );
+  @override
+  late final GeneratedColumn<String> callType = GeneratedColumn<String>(
+    'call_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('voip'),
+  );
+  static const VerificationMeta _contactNameMeta = const VerificationMeta(
+    'contactName',
+  );
+  @override
+  late final GeneratedColumn<String> contactName = GeneratedColumn<String>(
+    'contact_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _wasAnsweredMeta = const VerificationMeta(
+    'wasAnswered',
+  );
+  @override
+  late final GeneratedColumn<bool> wasAnswered = GeneratedColumn<bool>(
+    'was_answered',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("was_answered" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -107,6 +169,11 @@ class $DetectionTablesTable extends DetectionTables
     reported,
     audioFilePath,
     serverAnalysisJson,
+    durationSeconds,
+    callDirection,
+    callType,
+    contactName,
+    wasAnswered,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -179,6 +246,48 @@ class $DetectionTablesTable extends DetectionTables
         ),
       );
     }
+    if (data.containsKey('duration_seconds')) {
+      context.handle(
+        _durationSecondsMeta,
+        durationSeconds.isAcceptableOrUnknown(
+          data['duration_seconds']!,
+          _durationSecondsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('call_direction')) {
+      context.handle(
+        _callDirectionMeta,
+        callDirection.isAcceptableOrUnknown(
+          data['call_direction']!,
+          _callDirectionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('call_type')) {
+      context.handle(
+        _callTypeMeta,
+        callType.isAcceptableOrUnknown(data['call_type']!, _callTypeMeta),
+      );
+    }
+    if (data.containsKey('contact_name')) {
+      context.handle(
+        _contactNameMeta,
+        contactName.isAcceptableOrUnknown(
+          data['contact_name']!,
+          _contactNameMeta,
+        ),
+      );
+    }
+    if (data.containsKey('was_answered')) {
+      context.handle(
+        _wasAnsweredMeta,
+        wasAnswered.isAcceptableOrUnknown(
+          data['was_answered']!,
+          _wasAnsweredMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -220,6 +329,26 @@ class $DetectionTablesTable extends DetectionTables
         DriftSqlType.string,
         data['${effectivePrefix}server_analysis_json'],
       ),
+      durationSeconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}duration_seconds'],
+      )!,
+      callDirection: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}call_direction'],
+      )!,
+      callType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}call_type'],
+      )!,
+      contactName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}contact_name'],
+      ),
+      wasAnswered: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}was_answered'],
+      )!,
     );
   }
 
@@ -238,6 +367,11 @@ class DetectionData extends DataClass implements Insertable<DetectionData> {
   final bool reported;
   final String? audioFilePath;
   final String? serverAnalysisJson;
+  final int durationSeconds;
+  final String callDirection;
+  final String callType;
+  final String? contactName;
+  final bool wasAnswered;
   const DetectionData({
     required this.id,
     required this.number,
@@ -247,6 +381,11 @@ class DetectionData extends DataClass implements Insertable<DetectionData> {
     required this.reported,
     this.audioFilePath,
     this.serverAnalysisJson,
+    required this.durationSeconds,
+    required this.callDirection,
+    required this.callType,
+    this.contactName,
+    required this.wasAnswered,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -263,6 +402,13 @@ class DetectionData extends DataClass implements Insertable<DetectionData> {
     if (!nullToAbsent || serverAnalysisJson != null) {
       map['server_analysis_json'] = Variable<String>(serverAnalysisJson);
     }
+    map['duration_seconds'] = Variable<int>(durationSeconds);
+    map['call_direction'] = Variable<String>(callDirection);
+    map['call_type'] = Variable<String>(callType);
+    if (!nullToAbsent || contactName != null) {
+      map['contact_name'] = Variable<String>(contactName);
+    }
+    map['was_answered'] = Variable<bool>(wasAnswered);
     return map;
   }
 
@@ -280,6 +426,13 @@ class DetectionData extends DataClass implements Insertable<DetectionData> {
       serverAnalysisJson: serverAnalysisJson == null && nullToAbsent
           ? const Value.absent()
           : Value(serverAnalysisJson),
+      durationSeconds: Value(durationSeconds),
+      callDirection: Value(callDirection),
+      callType: Value(callType),
+      contactName: contactName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(contactName),
+      wasAnswered: Value(wasAnswered),
     );
   }
 
@@ -299,6 +452,11 @@ class DetectionData extends DataClass implements Insertable<DetectionData> {
       serverAnalysisJson: serializer.fromJson<String?>(
         json['serverAnalysisJson'],
       ),
+      durationSeconds: serializer.fromJson<int>(json['durationSeconds']),
+      callDirection: serializer.fromJson<String>(json['callDirection']),
+      callType: serializer.fromJson<String>(json['callType']),
+      contactName: serializer.fromJson<String?>(json['contactName']),
+      wasAnswered: serializer.fromJson<bool>(json['wasAnswered']),
     );
   }
   @override
@@ -313,6 +471,11 @@ class DetectionData extends DataClass implements Insertable<DetectionData> {
       'reported': serializer.toJson<bool>(reported),
       'audioFilePath': serializer.toJson<String?>(audioFilePath),
       'serverAnalysisJson': serializer.toJson<String?>(serverAnalysisJson),
+      'durationSeconds': serializer.toJson<int>(durationSeconds),
+      'callDirection': serializer.toJson<String>(callDirection),
+      'callType': serializer.toJson<String>(callType),
+      'contactName': serializer.toJson<String?>(contactName),
+      'wasAnswered': serializer.toJson<bool>(wasAnswered),
     };
   }
 
@@ -325,6 +488,11 @@ class DetectionData extends DataClass implements Insertable<DetectionData> {
     bool? reported,
     Value<String?> audioFilePath = const Value.absent(),
     Value<String?> serverAnalysisJson = const Value.absent(),
+    int? durationSeconds,
+    String? callDirection,
+    String? callType,
+    Value<String?> contactName = const Value.absent(),
+    bool? wasAnswered,
   }) => DetectionData(
     id: id ?? this.id,
     number: number ?? this.number,
@@ -338,6 +506,11 @@ class DetectionData extends DataClass implements Insertable<DetectionData> {
     serverAnalysisJson: serverAnalysisJson.present
         ? serverAnalysisJson.value
         : this.serverAnalysisJson,
+    durationSeconds: durationSeconds ?? this.durationSeconds,
+    callDirection: callDirection ?? this.callDirection,
+    callType: callType ?? this.callType,
+    contactName: contactName.present ? contactName.value : this.contactName,
+    wasAnswered: wasAnswered ?? this.wasAnswered,
   );
   DetectionData copyWithCompanion(DetectionTablesCompanion data) {
     return DetectionData(
@@ -353,6 +526,19 @@ class DetectionData extends DataClass implements Insertable<DetectionData> {
       serverAnalysisJson: data.serverAnalysisJson.present
           ? data.serverAnalysisJson.value
           : this.serverAnalysisJson,
+      durationSeconds: data.durationSeconds.present
+          ? data.durationSeconds.value
+          : this.durationSeconds,
+      callDirection: data.callDirection.present
+          ? data.callDirection.value
+          : this.callDirection,
+      callType: data.callType.present ? data.callType.value : this.callType,
+      contactName: data.contactName.present
+          ? data.contactName.value
+          : this.contactName,
+      wasAnswered: data.wasAnswered.present
+          ? data.wasAnswered.value
+          : this.wasAnswered,
     );
   }
 
@@ -366,7 +552,12 @@ class DetectionData extends DataClass implements Insertable<DetectionData> {
           ..write('timestamp: $timestamp, ')
           ..write('reported: $reported, ')
           ..write('audioFilePath: $audioFilePath, ')
-          ..write('serverAnalysisJson: $serverAnalysisJson')
+          ..write('serverAnalysisJson: $serverAnalysisJson, ')
+          ..write('durationSeconds: $durationSeconds, ')
+          ..write('callDirection: $callDirection, ')
+          ..write('callType: $callType, ')
+          ..write('contactName: $contactName, ')
+          ..write('wasAnswered: $wasAnswered')
           ..write(')'))
         .toString();
   }
@@ -381,6 +572,11 @@ class DetectionData extends DataClass implements Insertable<DetectionData> {
     reported,
     audioFilePath,
     serverAnalysisJson,
+    durationSeconds,
+    callDirection,
+    callType,
+    contactName,
+    wasAnswered,
   );
   @override
   bool operator ==(Object other) =>
@@ -393,7 +589,12 @@ class DetectionData extends DataClass implements Insertable<DetectionData> {
           other.timestamp == this.timestamp &&
           other.reported == this.reported &&
           other.audioFilePath == this.audioFilePath &&
-          other.serverAnalysisJson == this.serverAnalysisJson);
+          other.serverAnalysisJson == this.serverAnalysisJson &&
+          other.durationSeconds == this.durationSeconds &&
+          other.callDirection == this.callDirection &&
+          other.callType == this.callType &&
+          other.contactName == this.contactName &&
+          other.wasAnswered == this.wasAnswered);
 }
 
 class DetectionTablesCompanion extends UpdateCompanion<DetectionData> {
@@ -405,6 +606,11 @@ class DetectionTablesCompanion extends UpdateCompanion<DetectionData> {
   final Value<bool> reported;
   final Value<String?> audioFilePath;
   final Value<String?> serverAnalysisJson;
+  final Value<int> durationSeconds;
+  final Value<String> callDirection;
+  final Value<String> callType;
+  final Value<String?> contactName;
+  final Value<bool> wasAnswered;
   const DetectionTablesCompanion({
     this.id = const Value.absent(),
     this.number = const Value.absent(),
@@ -414,6 +620,11 @@ class DetectionTablesCompanion extends UpdateCompanion<DetectionData> {
     this.reported = const Value.absent(),
     this.audioFilePath = const Value.absent(),
     this.serverAnalysisJson = const Value.absent(),
+    this.durationSeconds = const Value.absent(),
+    this.callDirection = const Value.absent(),
+    this.callType = const Value.absent(),
+    this.contactName = const Value.absent(),
+    this.wasAnswered = const Value.absent(),
   });
   DetectionTablesCompanion.insert({
     this.id = const Value.absent(),
@@ -424,6 +635,11 @@ class DetectionTablesCompanion extends UpdateCompanion<DetectionData> {
     this.reported = const Value.absent(),
     this.audioFilePath = const Value.absent(),
     this.serverAnalysisJson = const Value.absent(),
+    this.durationSeconds = const Value.absent(),
+    this.callDirection = const Value.absent(),
+    this.callType = const Value.absent(),
+    this.contactName = const Value.absent(),
+    this.wasAnswered = const Value.absent(),
   }) : number = Value(number),
        score = Value(score),
        reason = Value(reason),
@@ -437,6 +653,11 @@ class DetectionTablesCompanion extends UpdateCompanion<DetectionData> {
     Expression<bool>? reported,
     Expression<String>? audioFilePath,
     Expression<String>? serverAnalysisJson,
+    Expression<int>? durationSeconds,
+    Expression<String>? callDirection,
+    Expression<String>? callType,
+    Expression<String>? contactName,
+    Expression<bool>? wasAnswered,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -448,6 +669,11 @@ class DetectionTablesCompanion extends UpdateCompanion<DetectionData> {
       if (audioFilePath != null) 'audio_file_path': audioFilePath,
       if (serverAnalysisJson != null)
         'server_analysis_json': serverAnalysisJson,
+      if (durationSeconds != null) 'duration_seconds': durationSeconds,
+      if (callDirection != null) 'call_direction': callDirection,
+      if (callType != null) 'call_type': callType,
+      if (contactName != null) 'contact_name': contactName,
+      if (wasAnswered != null) 'was_answered': wasAnswered,
     });
   }
 
@@ -460,6 +686,11 @@ class DetectionTablesCompanion extends UpdateCompanion<DetectionData> {
     Value<bool>? reported,
     Value<String?>? audioFilePath,
     Value<String?>? serverAnalysisJson,
+    Value<int>? durationSeconds,
+    Value<String>? callDirection,
+    Value<String>? callType,
+    Value<String?>? contactName,
+    Value<bool>? wasAnswered,
   }) {
     return DetectionTablesCompanion(
       id: id ?? this.id,
@@ -470,6 +701,11 @@ class DetectionTablesCompanion extends UpdateCompanion<DetectionData> {
       reported: reported ?? this.reported,
       audioFilePath: audioFilePath ?? this.audioFilePath,
       serverAnalysisJson: serverAnalysisJson ?? this.serverAnalysisJson,
+      durationSeconds: durationSeconds ?? this.durationSeconds,
+      callDirection: callDirection ?? this.callDirection,
+      callType: callType ?? this.callType,
+      contactName: contactName ?? this.contactName,
+      wasAnswered: wasAnswered ?? this.wasAnswered,
     );
   }
 
@@ -500,6 +736,21 @@ class DetectionTablesCompanion extends UpdateCompanion<DetectionData> {
     if (serverAnalysisJson.present) {
       map['server_analysis_json'] = Variable<String>(serverAnalysisJson.value);
     }
+    if (durationSeconds.present) {
+      map['duration_seconds'] = Variable<int>(durationSeconds.value);
+    }
+    if (callDirection.present) {
+      map['call_direction'] = Variable<String>(callDirection.value);
+    }
+    if (callType.present) {
+      map['call_type'] = Variable<String>(callType.value);
+    }
+    if (contactName.present) {
+      map['contact_name'] = Variable<String>(contactName.value);
+    }
+    if (wasAnswered.present) {
+      map['was_answered'] = Variable<bool>(wasAnswered.value);
+    }
     return map;
   }
 
@@ -513,7 +764,12 @@ class DetectionTablesCompanion extends UpdateCompanion<DetectionData> {
           ..write('timestamp: $timestamp, ')
           ..write('reported: $reported, ')
           ..write('audioFilePath: $audioFilePath, ')
-          ..write('serverAnalysisJson: $serverAnalysisJson')
+          ..write('serverAnalysisJson: $serverAnalysisJson, ')
+          ..write('durationSeconds: $durationSeconds, ')
+          ..write('callDirection: $callDirection, ')
+          ..write('callType: $callType, ')
+          ..write('contactName: $contactName, ')
+          ..write('wasAnswered: $wasAnswered')
           ..write(')'))
         .toString();
   }
@@ -542,6 +798,11 @@ typedef $$DetectionTablesTableCreateCompanionBuilder =
       Value<bool> reported,
       Value<String?> audioFilePath,
       Value<String?> serverAnalysisJson,
+      Value<int> durationSeconds,
+      Value<String> callDirection,
+      Value<String> callType,
+      Value<String?> contactName,
+      Value<bool> wasAnswered,
     });
 typedef $$DetectionTablesTableUpdateCompanionBuilder =
     DetectionTablesCompanion Function({
@@ -553,6 +814,11 @@ typedef $$DetectionTablesTableUpdateCompanionBuilder =
       Value<bool> reported,
       Value<String?> audioFilePath,
       Value<String?> serverAnalysisJson,
+      Value<int> durationSeconds,
+      Value<String> callDirection,
+      Value<String> callType,
+      Value<String?> contactName,
+      Value<bool> wasAnswered,
     });
 
 class $$DetectionTablesTableFilterComposer
@@ -601,6 +867,31 @@ class $$DetectionTablesTableFilterComposer
 
   ColumnFilters<String> get serverAnalysisJson => $composableBuilder(
     column: $table.serverAnalysisJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get durationSeconds => $composableBuilder(
+    column: $table.durationSeconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get callDirection => $composableBuilder(
+    column: $table.callDirection,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get callType => $composableBuilder(
+    column: $table.callType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contactName => $composableBuilder(
+    column: $table.contactName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get wasAnswered => $composableBuilder(
+    column: $table.wasAnswered,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -653,6 +944,31 @@ class $$DetectionTablesTableOrderingComposer
     column: $table.serverAnalysisJson,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get durationSeconds => $composableBuilder(
+    column: $table.durationSeconds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get callDirection => $composableBuilder(
+    column: $table.callDirection,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get callType => $composableBuilder(
+    column: $table.callType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get contactName => $composableBuilder(
+    column: $table.contactName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get wasAnswered => $composableBuilder(
+    column: $table.wasAnswered,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$DetectionTablesTableAnnotationComposer
@@ -689,6 +1005,29 @@ class $$DetectionTablesTableAnnotationComposer
 
   GeneratedColumn<String> get serverAnalysisJson => $composableBuilder(
     column: $table.serverAnalysisJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get durationSeconds => $composableBuilder(
+    column: $table.durationSeconds,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get callDirection => $composableBuilder(
+    column: $table.callDirection,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get callType =>
+      $composableBuilder(column: $table.callType, builder: (column) => column);
+
+  GeneratedColumn<String> get contactName => $composableBuilder(
+    column: $table.contactName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get wasAnswered => $composableBuilder(
+    column: $table.wasAnswered,
     builder: (column) => column,
   );
 }
@@ -734,6 +1073,11 @@ class $$DetectionTablesTableTableManager
                 Value<bool> reported = const Value.absent(),
                 Value<String?> audioFilePath = const Value.absent(),
                 Value<String?> serverAnalysisJson = const Value.absent(),
+                Value<int> durationSeconds = const Value.absent(),
+                Value<String> callDirection = const Value.absent(),
+                Value<String> callType = const Value.absent(),
+                Value<String?> contactName = const Value.absent(),
+                Value<bool> wasAnswered = const Value.absent(),
               }) => DetectionTablesCompanion(
                 id: id,
                 number: number,
@@ -743,6 +1087,11 @@ class $$DetectionTablesTableTableManager
                 reported: reported,
                 audioFilePath: audioFilePath,
                 serverAnalysisJson: serverAnalysisJson,
+                durationSeconds: durationSeconds,
+                callDirection: callDirection,
+                callType: callType,
+                contactName: contactName,
+                wasAnswered: wasAnswered,
               ),
           createCompanionCallback:
               ({
@@ -754,6 +1103,11 @@ class $$DetectionTablesTableTableManager
                 Value<bool> reported = const Value.absent(),
                 Value<String?> audioFilePath = const Value.absent(),
                 Value<String?> serverAnalysisJson = const Value.absent(),
+                Value<int> durationSeconds = const Value.absent(),
+                Value<String> callDirection = const Value.absent(),
+                Value<String> callType = const Value.absent(),
+                Value<String?> contactName = const Value.absent(),
+                Value<bool> wasAnswered = const Value.absent(),
               }) => DetectionTablesCompanion.insert(
                 id: id,
                 number: number,
@@ -763,6 +1117,11 @@ class $$DetectionTablesTableTableManager
                 reported: reported,
                 audioFilePath: audioFilePath,
                 serverAnalysisJson: serverAnalysisJson,
+                durationSeconds: durationSeconds,
+                callDirection: callDirection,
+                callType: callType,
+                contactName: contactName,
+                wasAnswered: wasAnswered,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

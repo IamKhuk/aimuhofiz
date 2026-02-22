@@ -1,4 +1,5 @@
 import 'package:get_it/get_it.dart';
+import 'core/services/sip_service.dart';
 import 'features/fraud_detection/data/datasources/local_data_source.dart';
 import 'features/fraud_detection/data/datasources/model_data_source.dart';
 import 'features/fraud_detection/data/repositories/fraud_detection_repository_impl.dart';
@@ -17,6 +18,9 @@ Future<void> init() async {
         getRecentDetections: sl(),
       ));
   sl.registerFactory(() => CallHistoryBloc(localDb: sl()));
+
+  // Services
+  sl.registerLazySingleton<SipService>(() => SipService());
 
   // Use cases
   sl.registerLazySingleton(() => DetectFraud(sl()));

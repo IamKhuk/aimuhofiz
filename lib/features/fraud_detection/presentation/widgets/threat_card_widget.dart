@@ -51,7 +51,7 @@ class ThreatCardWidget extends StatelessWidget {
                 // Header: Phone icon, Caller name/number, Risk badge
                 Row(
                   children: [
-                    // Phone icon in square container
+                    // Phone icon with direction indicator
                     Container(
                       width: 48,
                       height: 48,
@@ -60,7 +60,7 @@ class ThreatCardWidget extends StatelessWidget {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Icon(
-                        Icons.phone,
+                        _getDirectionIcon(detection.callDirection),
                         color: textColor,
                         size: 24,
                       ),
@@ -262,11 +262,13 @@ class ThreatCardWidget extends StatelessWidget {
   }
 
   String _getCallerName(FraudAlertLevel riskLevel) {
+    // Use actual contact name if available
+    if (detection.contactName != null && detection.contactName!.isNotEmpty) {
+      return detection.contactName!;
+    }
     if (riskLevel == FraudAlertLevel.fraud) {
       return "Noma'lum Qo'ng'iroq";
     } else if (riskLevel == FraudAlertLevel.safe) {
-      // For safe calls, try to extract a name or use a generic name
-      // In a real app, this would come from contacts
       return "Tasdiqlandan Qo'ng'iroq";
     } else {
       return "Noma'lum Qo'ng'iroq";
@@ -276,28 +278,52 @@ class ThreatCardWidget extends StatelessWidget {
   String _formatTimeWithDuration(DateTime timestamp) {
     final now = DateTime.now();
     final difference = now.difference(timestamp);
-    
+
     String timeAgo;
     if (difference.inDays == 0) {
       if (difference.inHours == 0) {
         timeAgo = '${difference.inMinutes}m oldin';
       } else {
-        timeAgo = '${difference.inHours} ${difference.inHours == 1 ? 'soat' : 'soat'} oldin';
+        timeAgo = '${difference.inHours} soat oldin';
       }
     } else if (difference.inDays == 1) {
       timeAgo = 'Kecha';
     } else {
-      timeAgo = '${difference.inDays}kun oldin';
+      timeAgo = '${difference.inDays} kun oldin';
     }
-    
-    // Format time in 12-hour format without AM/PM (e.g., "12:45")
-    final hour = timestamp.hour > 12 ? timestamp.hour - 12 : (timestamp.hour == 0 ? 12 : timestamp.hour);
+
+    // Format time in 24-hour format
+    final hour = timestamp.hour.toString().padLeft(2, '0');
     final minute = timestamp.minute.toString().padLeft(2, '0');
     final timeString = '$hour:$minute';
-    
-    // For duration, we'll use a placeholder since it's not in Detection
-    // In a real app, this would come from call logs
-    return '$timeAgo • $timeString';
+
+    // Format call duration
+    final durationStr = _formatCallDuration(detection.durationSeconds);
+
+    return '$timeAgo • $timeString • $durationStr';
+  }
+
+  String _formatCallDuration(int seconds) {
+    if (seconds <= 0) return "Javobsiz";
+    final mins = seconds ~/ 60;
+    final secs = seconds % 60;
+    if (mins > 0) {
+      return '${mins}d ${secs}s';
+    }
+    return '${secs}s';
+  }
+
+  IconData _getDirectionIcon(String direction) {
+    switch (direction) {
+      case 'incoming':
+        return Icons.call_received;
+      case 'outgoing':
+        return Icons.call_made;
+      case 'missed':
+        return Icons.call_missed;
+      default:
+        return Icons.phone;
+    }
   }
 
   List<String> _parseReasons(String reason) {

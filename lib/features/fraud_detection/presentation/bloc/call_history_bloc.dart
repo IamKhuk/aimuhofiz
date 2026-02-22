@@ -107,6 +107,11 @@ class CallHistoryBloc extends Bloc<CallHistoryEvent, CallHistoryState> {
                 reported: d.reported,
                 audioFilePath: d.audioFilePath,
                 serverAnalysisJson: d.serverAnalysisJson,
+                durationSeconds: d.durationSeconds,
+                callDirection: d.callDirection,
+                callType: d.callType,
+                contactName: d.contactName,
+                wasAnswered: d.wasAnswered,
               ))
           .toList();
 

@@ -85,6 +85,9 @@ class _ThreatDetailsPageState extends State<ThreatDetailsPage> {
           confidence: 0.0,
           warningMessage: widget.detection.reason,
           flaggedReasons: widget.threatDetails?.flaggedReasons,
+          callDuration: Duration(seconds: widget.detection.durationSeconds),
+          callType: _localizeDirection(widget.detection.callDirection),
+          callerName: widget.detection.contactName,
         );
 
     // Ensure Flagged Reasons, AI Analysis, and Timeline are always populated
@@ -188,6 +191,19 @@ class _ThreatDetailsPageState extends State<ThreatDetailsPage> {
     if (score <= 30) return 'safe';
     if (score <= 70) return 'suspicious';
     return 'danger';
+  }
+
+  String _localizeDirection(String direction) {
+    switch (direction) {
+      case 'incoming':
+        return "Kiruvchi";
+      case 'outgoing':
+        return "Chiquvchi";
+      case 'missed':
+        return "O'tkazib yuborilgan";
+      default:
+        return direction;
+    }
   }
 
   /// Ensures that Flagged Reasons, AI Analysis, and Timeline are always populated

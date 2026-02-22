@@ -16,6 +16,11 @@ class DetectionTables extends Table {
   BoolColumn get reported => boolean().withDefault(const Constant(false))();
   TextColumn get audioFilePath => text().nullable()();
   TextColumn get serverAnalysisJson => text().nullable()();
+  IntColumn get durationSeconds => integer().withDefault(const Constant(0))();
+  TextColumn get callDirection => text().withDefault(const Constant('outgoing'))();
+  TextColumn get callType => text().withDefault(const Constant('voip'))();
+  TextColumn get contactName => text().nullable()();
+  BoolColumn get wasAnswered => boolean().withDefault(const Constant(true))();
 }
 
 @DriftDatabase(tables: [DetectionTables])
@@ -23,7 +28,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration {
@@ -41,6 +46,13 @@ class AppDatabase extends _$AppDatabase {
         if (from < 3) {
           await customStatement('ALTER TABLE detection_tables ADD COLUMN audio_file_path TEXT');
           await customStatement('ALTER TABLE detection_tables ADD COLUMN server_analysis_json TEXT');
+        }
+        if (from < 4) {
+          await customStatement("ALTER TABLE detection_tables ADD COLUMN duration_seconds INTEGER NOT NULL DEFAULT 0");
+          await customStatement("ALTER TABLE detection_tables ADD COLUMN call_direction TEXT NOT NULL DEFAULT 'outgoing'");
+          await customStatement("ALTER TABLE detection_tables ADD COLUMN call_type TEXT NOT NULL DEFAULT 'voip'");
+          await customStatement("ALTER TABLE detection_tables ADD COLUMN contact_name TEXT");
+          await customStatement("ALTER TABLE detection_tables ADD COLUMN was_answered INTEGER NOT NULL DEFAULT 1");
         }
       },
     );
@@ -84,30 +96,50 @@ class AppDatabase extends _$AppDatabase {
         score: const Value(92),
         reason: const Value('Soliq xizmati firibgarligi aniqlandi: shoshilinch to\'lov talab qilindi'),
         timestamp: Value(now.subtract(const Duration(hours: 2))),
+        durationSeconds: const Value(185),
+        callDirection: const Value('incoming'),
+        callType: const Value('voip'),
+        wasAnswered: const Value(true),
       ),
       DetectionTablesCompanion(
         number: const Value('+998935551234'),
         score: const Value(78),
         reason: const Value('Tech support firibgarligi: kompyuteringizga masofaviy kirish so\'raldi'),
         timestamp: Value(now.subtract(const Duration(hours: 18))),
+        durationSeconds: const Value(342),
+        callDirection: const Value('incoming'),
+        callType: const Value('voip'),
+        wasAnswered: const Value(true),
       ),
       DetectionTablesCompanion(
         number: const Value('+998911112233'),
         score: const Value(65),
         reason: const Value('Bank hisobini tekshirish so\'rovi: shubhali so\'rov'),
         timestamp: Value(now.subtract(const Duration(days: 1, hours: 5))),
+        durationSeconds: const Value(120),
+        callDirection: const Value('outgoing'),
+        callType: const Value('voip'),
+        wasAnswered: const Value(true),
       ),
       DetectionTablesCompanion(
         number: const Value('+998943334455'),
         score: const Value(45),
         reason: const Value('Lotereya yutug\'i haqida shubhali xabar'),
         timestamp: Value(now.subtract(const Duration(days: 2, hours: 10))),
+        durationSeconds: const Value(67),
+        callDirection: const Value('incoming'),
+        callType: const Value('voip'),
+        wasAnswered: const Value(true),
       ),
       DetectionTablesCompanion(
         number: const Value('+998977778899'),
         score: const Value(12),
         reason: const Value('Oddiy qo\'ng\'iroq, xavf aniqlanmadi'),
         timestamp: Value(now.subtract(const Duration(days: 3))),
+        durationSeconds: const Value(480),
+        callDirection: const Value('outgoing'),
+        callType: const Value('voip'),
+        wasAnswered: const Value(true),
       ),
     ];
 

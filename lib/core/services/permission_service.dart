@@ -84,7 +84,17 @@ class PermissionService {
       }
     }
 
-    // 4. Notification permission
+    // 4. Contacts permission (READ_CONTACTS) - Android only
+    if (Platform.isAndroid) {
+      final contactsStatus = await Permission.contacts.request();
+      if (!contactsStatus.isGranted) {
+        debugPrint('PermissionService: Contacts permission not granted');
+      } else {
+        debugPrint('PermissionService: Contacts permission granted');
+      }
+    }
+
+    // 5. Notification permission
     final notifStatus = await Permission.notification.request();
     if (!notifStatus.isGranted) {
       debugPrint('PermissionService: Notification permission not granted');
@@ -195,6 +205,12 @@ class PermissionService {
               icon: Icons.mic,
               title: 'Mikrofon',
               description: 'Ovozni tahlil qilish uchun',
+            ),
+            SizedBox(height: 8),
+            _PermissionItem(
+              icon: Icons.contacts,
+              title: 'Kontaktlar',
+              description: 'Kontaktlar ro\'yxatiga kirish',
             ),
             SizedBox(height: 8),
             _PermissionItem(

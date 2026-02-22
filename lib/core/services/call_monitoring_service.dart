@@ -3,15 +3,20 @@ import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import '../../features/fraud_detection/data/datasources/local_data_source.dart';
 import '../services/call_analyzer.dart';
-import '../services/call_state_listener.dart';
 import '../services/fraud_detector.dart';
+import '../services/sip_service.dart';
 import '../services/threat_overlay_service.dart';
 import '../services/sound_alert_service.dart';
 import '../services/call_history_service.dart';
 import '../services/audio_recording_service.dart';
 import '../services/audio_analysis_service.dart';
 
-/// Service that monitors phone calls and triggers fraud detection overlay
+/// Callback for fraud detection results — used by CallBloc to update UI.
+typedef FraudDetectedCallback = void Function(FraudResult result);
+
+/// Service that monitors phone calls and triggers fraud detection.
+/// In VoIP mode: called by SipService events, updates CallBloc via callback.
+/// In fallback mode: uses overlay for fraud display.
 class CallMonitoringService {
   final CallAnalyzer _callAnalyzer = CallAnalyzer();
   final SoundAlertService _soundService = SoundAlertService();
@@ -22,6 +27,14 @@ class CallMonitoringService {
   FraudResult? _lastFraudResult;
   DateTime? _callStartTime;
   String? _recordingFilePath;
+  String _callDirection = 'outgoing';
+  String? _contactName;
+
+  /// External callback for fraud results (set by CallBloc).
+  FraudDetectedCallback? onFraudDetected;
+
+  /// Whether to use the overlay (fallback when not default dialer).
+  bool useOverlay = false;
 
   static final CallMonitoringService _instance =
       CallMonitoringService._internal();
@@ -35,16 +48,17 @@ class CallMonitoringService {
     await ThreatOverlayService.initialize();
     await _soundService.initialize();
 
-    // Initialize call state listener
-    await CallStateListener().initialize();
-
     // Flush any API saves that failed in previous sessions
     CallHistoryService.retryPendingSaves();
     debugPrint('CallMonitoringService: Initialization complete');
   }
 
-  /// Start monitoring a phone call (Simulated or Real)
-  Future<void> startMonitoringCall(String phoneNumber) async {
+  /// Start monitoring a phone call (VoIP or Simulated)
+  Future<void> startMonitoringCall(
+    String phoneNumber, {
+    String direction = 'outgoing',
+    String? contactName,
+  }) async {
     debugPrint('===== START MONITORING CALL =====');
     debugPrint('Phone number: $phoneNumber');
     debugPrint('Already monitoring: $_isMonitoring');
@@ -60,6 +74,8 @@ class CallMonitoringService {
     _lastFraudResult = null;
     _callStartTime = DateTime.now();
     _recordingFilePath = null;
+    _callDirection = direction;
+    _contactName = contactName;
     debugPrint('Started monitoring call for: $phoneNumber');
 
     // Start audio recording
@@ -71,10 +87,10 @@ class CallMonitoringService {
       debugPrint('WARNING: Audio recording could not be started');
     }
 
-    // Show initial overlay with 0% score (safe)
-    debugPrint('Showing initial overlay...');
-    await _showInitialOverlay(phoneNumber);
-    debugPrint('Initial overlay shown');
+    // Show overlay as fallback (when not using in-call UI)
+    if (useOverlay) {
+      await _showInitialOverlay(phoneNumber);
+    }
 
     // Warn user if microphone / speech recognition is not available
     if (!_callAnalyzer.isSpeechAvailable) {
@@ -88,21 +104,21 @@ class CallMonitoringService {
         totalKeywords: 0,
         warningMessage: "Mikrofon ruxsati berilmagan! Ovozli tahlil ishlamaydi.",
       );
-      await _updateOverlay(warningResult, phoneNumber);
+      _notifyFraudResult(warningResult, phoneNumber);
     }
 
     // Start analytics (with or without audio)
     await _callAnalyzer.startListening(
       onFraudDetected: (FraudResult fraudResult) async {
-        print('Fraud Analysis: Score: ${fraudResult.score}');
+        debugPrint('Fraud Analysis: Score: ${fraudResult.score}');
 
         // Track the highest fraud result for saving to history
         if (_lastFraudResult == null || fraudResult.score > _lastFraudResult!.score) {
           _lastFraudResult = fraudResult;
         }
 
-        // Update overlay with new score
-        await _updateOverlay(fraudResult, phoneNumber);
+        // Notify listeners (CallBloc or overlay)
+        _notifyFraudResult(fraudResult, phoneNumber);
 
         // Play sound alert based on threat score
         if (fraudResult.score >= 30) {
@@ -112,21 +128,30 @@ class CallMonitoringService {
         // Auto-end call if score reaches 95%
         if (fraudResult.score >= 95 && !_hasAutoEndedCall) {
           _hasAutoEndedCall = true;
-          print('DANGER! Auto-ending call due to high fraud score: ${fraudResult.score}');
+          debugPrint('DANGER! Auto-ending call due to high fraud score: ${fraudResult.score}');
           await _autoEndCall(fraudResult);
         }
       },
       onTextRecognized: (String text) {
-        // Optional: Handle text recognition updates
-        print('Recognized text: $text');
+        debugPrint('Recognized text: $text');
       },
       phoneNumber: phoneNumber,
     );
   }
 
-  /// Show initial overlay when call starts
+  /// Notify fraud result to CallBloc callback and/or overlay.
+  void _notifyFraudResult(FraudResult fraudResult, String phoneNumber) {
+    // Notify CallBloc (VoIP in-call UI)
+    onFraudDetected?.call(fraudResult);
+
+    // Update overlay if in fallback mode
+    if (useOverlay) {
+      _updateOverlay(fraudResult, phoneNumber);
+    }
+  }
+
+  /// Show initial overlay when call starts (fallback mode)
   Future<void> _showInitialOverlay(String phoneNumber) async {
-    debugPrint('_showInitialOverlay: Creating initial FraudResult');
     final initialResult = FraudResult(
       score: 0,
       mlScore: 0,
@@ -137,19 +162,17 @@ class CallMonitoringService {
       warningMessage: "Qo'ng'iroq tahlil qilinmoqda...",
     );
 
-    debugPrint('_showInitialOverlay: Calling ThreatOverlayService.showThreatOverlay');
     try {
       await ThreatOverlayService.showThreatOverlay(
         fraudResult: initialResult,
         phoneNumber: phoneNumber,
       );
-      debugPrint('_showInitialOverlay: Overlay shown successfully');
     } catch (e) {
-      debugPrint('_showInitialOverlay: Error showing overlay: $e');
+      debugPrint('Error showing overlay: $e');
     }
   }
 
-  /// Update overlay with new fraud result (no close/reopen, just sends data)
+  /// Update overlay with new fraud result (fallback mode)
   Future<void> _updateOverlay(
       FraudResult fraudResult, String phoneNumber) async {
     await ThreatOverlayService.updateThreatOverlay(
@@ -163,7 +186,7 @@ class CallMonitoringService {
     // Play danger alert
     await _soundService.playDangerAlert();
 
-    // Show final warning in overlay
+    // Show final warning
     final warningResult = FraudResult(
       score: fraudResult.score,
       mlScore: fraudResult.mlScore,
@@ -174,18 +197,14 @@ class CallMonitoringService {
       warningMessage: "XAVFLI! Qo'ng'iroq avtomatik tugatilmoqda!",
     );
 
-    await _updateOverlay(warningResult, _currentPhoneNumber ?? 'Unknown');
+    _notifyFraudResult(warningResult, _currentPhoneNumber ?? 'Unknown');
 
     // Wait a moment for user to see the warning
     await Future.delayed(const Duration(seconds: 2));
 
-    // End the call
-    final success = await CallStateListener.endCall();
-    if (success) {
-      print('Call ended successfully');
-    } else {
-      print('Failed to end call automatically');
-    }
+    // End the call via SIP
+    SipService().hangUp();
+    debugPrint('Call auto-ended via SIP');
   }
 
   /// Simulate incoming call for testing
@@ -198,7 +217,7 @@ class CallMonitoringService {
     if (_isMonitoring) {
       await _callAnalyzer.processText(text);
     } else {
-      print('Not observing any call. Start monitoring first.');
+      debugPrint('Not observing any call. Start monitoring first.');
     }
   }
 
@@ -209,7 +228,10 @@ class CallMonitoringService {
     try {
       _callAnalyzer.stopListening();
       _callAnalyzer.reset();
-      await ThreatOverlayService.hideThreatOverlay();
+
+      if (useOverlay) {
+        await ThreatOverlayService.hideThreatOverlay();
+      }
 
       // Stop audio recording
       final recordingPath = await _audioRecorder.stopRecording();
@@ -230,6 +252,9 @@ class CallMonitoringService {
       _lastFraudResult = null;
       _callStartTime = null;
       _recordingFilePath = null;
+      _callDirection = 'outgoing';
+      _contactName = null;
+      onFraudDetected = null;
       debugPrint('Stopped monitoring call');
     }
   }
@@ -261,6 +286,11 @@ class CallMonitoringService {
           timestamp: Value(DateTime.now()),
           reported: const Value(false),
           audioFilePath: Value(audioPath),
+          durationSeconds: Value(durationSeconds),
+          callDirection: Value(_callDirection),
+          callType: const Value('voip'),
+          contactName: Value(_contactName),
+          wasAnswered: Value(durationSeconds > 0),
         ),
       );
       debugPrint('Detection saved to history: $phoneNumber, score: $score, id: $localId');

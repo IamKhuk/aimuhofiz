@@ -3,10 +3,18 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'home_page.dart';
 import 'history_page.dart';
-import 'chat_page.dart';
 import '../bloc/detection_bloc.dart';
 import '../bloc/call_history_bloc.dart';
 import '../../../../injection_container.dart';
+import '../../../../core/services/sip_service.dart';
+import '../../../../core/services/telecom_bridge_service.dart';
+import '../../../dialer/presentation/pages/keypad_page.dart';
+import '../../../dialer/presentation/pages/contacts_page.dart';
+import '../../../dialer/presentation/pages/incoming_call_page.dart';
+import '../../../dialer/presentation/bloc/call_bloc.dart';
+import '../../../dialer/presentation/bloc/sip_registration_bloc.dart';
+import '../../../settings/presentation/pages/settings_page.dart';
+import 'package:sip_ua/sip_ua.dart' show CallStateEnum;
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -17,10 +25,53 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
+  late final CallBloc _callBloc;
+  late final SipRegistrationBloc _sipRegBloc;
+
+  @override
+  void initState() {
+    super.initState();
+    _callBloc = CallBloc(sipService: SipService());
+    _sipRegBloc = SipRegistrationBloc(sipService: SipService());
+
+    // Listen for incoming calls to show incoming call UI
+    SipService().callEventStream.listen((event) {
+      if (event.state == CallStateEnum.CALL_INITIATION &&
+          event.direction == 'INCOMING') {
+        _showIncomingCallPage(event.remoteNumber);
+      }
+    });
+
+    // Listen for dial intents from the system
+    TelecomBridgeService.onDialRequest((number) {
+      setState(() => _currentIndex = 0);
+    });
+  }
+
+  @override
+  void dispose() {
+    _callBloc.close();
+    _sipRegBloc.close();
+    super.dispose();
+  }
+
+  void _showIncomingCallPage(String callerNumber) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => MultiBlocProvider(
+          providers: [
+            BlocProvider.value(value: _callBloc),
+            BlocProvider.value(value: _sipRegBloc),
+          ],
+          child: IncomingCallPage(callerNumber: callerNumber),
+        ),
+      ),
+    );
+  }
 
   void _navigateToChat() {
     setState(() {
-      _currentIndex = 2; // Index of AIChatPage
+      _currentIndex = 3;
     });
   }
 
@@ -28,9 +79,8 @@ class _MainNavigationState extends State<MainNavigation> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween, // Changed to spaceBetween
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Logo and Texts
           Expanded(
             child: Row(
               children: [
@@ -40,7 +90,7 @@ class _MainNavigationState extends State<MainNavigation> {
                   height: 40,
                 ),
                 const SizedBox(width: 12),
-                const Flexible( // Added Flexible to prevent overflow
+                const Flexible(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
@@ -67,7 +117,6 @@ class _MainNavigationState extends State<MainNavigation> {
               ],
             ),
           ),
-          // Chat Avatar Entry Point
           GestureDetector(
             onTap: _navigateToChat,
             child: Container(
@@ -96,17 +145,13 @@ class _MainNavigationState extends State<MainNavigation> {
   Widget _getAppBarTitle() {
     switch (_currentIndex) {
       case 0:
-        return _buildAIMuhofizCard();
+        return const Text('Telefon');
       case 1:
         return const Text("Qo'ng'iroqlar Tarixi");
       case 2:
-        return _buildAIMuhofizCard(); // Show card on Chat page too? Or just title? User asked to change Profile to Chat.
-        // Actually, usually chat pages have a title "AI Chat".
-        // But user said "Put ciricle avatart widget on the right side of ... and make it navigate to profile page".
-        // Which implies the card is on home page.
-        // On the chat page itself, standard title is better.
-        // Let's keep specific titles for other pages.
-        // REVISION: The User asked to replace Profile Page with AI Chatbox Page.
+        return const Text('Kontaktlar');
+      case 3:
+        return _buildAIMuhofizCard();
       default:
         return const Text('AI Muhofiz');
     }
@@ -115,17 +160,29 @@ class _MainNavigationState extends State<MainNavigation> {
   Widget _getBody() {
     switch (_currentIndex) {
       case 0:
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider.value(value: _callBloc),
+            BlocProvider.value(value: _sipRegBloc),
+          ],
+          child: const KeypadPage(),
+        );
+      case 1:
+        return BlocProvider(
+          create: (_) =>
+              sl<CallHistoryBloc>()..add(const LoadCallHistoryEvent()),
+          child: const HistoryPageContent(),
+        );
+      case 2:
+        return BlocProvider.value(
+          value: _callBloc,
+          child: const ContactsPage(),
+        );
+      case 3:
         return BlocProvider(
           create: (_) => sl<DetectionBloc>(),
           child: const HomePageContent(),
         );
-      case 1:
-        return BlocProvider(
-          create: (_) => sl<CallHistoryBloc>()..add(const LoadCallHistoryEvent()),
-          child: const HistoryPageContent(),
-        );
-      case 2:
-        return const AIChatPage();
       default:
         return const SizedBox.shrink();
     }
@@ -134,18 +191,35 @@ class _MainNavigationState extends State<MainNavigation> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: _currentIndex == 2
+      appBar: _currentIndex == 0
           ? null
           : AppBar(
-              title: _currentIndex == 0 ? _buildAIMuhofizCard() : _getAppBarTitle(),
+              title: _getAppBarTitle(),
               backgroundColor: const Color(0xFF0F1720),
               elevation: 0,
               centerTitle: true,
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.settings_outlined),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => MultiBlocProvider(
+                          providers: [
+                            BlocProvider.value(value: _sipRegBloc),
+                          ],
+                          child: const SettingsPage(),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
       body: _getBody(),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
-        backgroundColor: const Color(0xFF131d2b), // Fixed const
+        backgroundColor: const Color(0xFF131d2b),
         onDestinationSelected: (index) {
           setState(() {
             _currentIndex = index;
@@ -153,23 +227,27 @@ class _MainNavigationState extends State<MainNavigation> {
         },
         destinations: const [
           NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
+            icon: Icon(Icons.dialpad_outlined),
+            selectedIcon: Icon(Icons.dialpad),
+            label: 'Telefon',
           ),
           NavigationDestination(
             icon: Icon(Icons.history_outlined),
             selectedIcon: Icon(Icons.history),
-            label: 'History',
+            label: 'Tarix',
           ),
           NavigationDestination(
-            icon: Icon(Icons.chat_bubble_outline), // Changed icon to chat
-            selectedIcon: Icon(Icons.chat_bubble),
-            label: 'AI Chat', // Changed label to AI Chat
+            icon: Icon(Icons.contacts_outlined),
+            selectedIcon: Icon(Icons.contacts),
+            label: 'Kontaktlar',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.shield_outlined),
+            selectedIcon: Icon(Icons.shield),
+            label: 'AI Muhofiz',
           ),
         ],
       ),
     );
   }
 }
-

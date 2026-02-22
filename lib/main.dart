@@ -1,9 +1,8 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'core/utils/call_screening_bridge.dart';
 import 'core/services/auth_service.dart';
+import 'core/services/sip_service.dart';
+import 'core/services/sip_config_service.dart';
+import 'core/services/telecom_bridge_service.dart';
 import 'features/fraud_detection/presentation/pages/login_page.dart';
 import 'features/fraud_detection/presentation/pages/main_navigation.dart';
 import 'features/fraud_detection/presentation/pages/ongoing_threat_page.dart';
@@ -19,13 +18,15 @@ import 'features/fraud_detection/presentation/pages/threat_overlay_widget.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  CallScreeningBridge.init();
   await di.init();
+
+  // Initialize telecom bridge for default dialer integration
+  TelecomBridgeService.initialize();
 
   // Initialize sound alert service
   await SoundAlertService().initialize();
 
-  // Initialize overlay service
+  // Initialize overlay service (kept as fallback)
   await ThreatOverlayService.initialize();
 
   // Initialize call monitoring service
@@ -35,6 +36,21 @@ void main() async {
   AudioRecordingService.cleanupOldRecordings();
 
   runApp(const MyApp());
+}
+
+/// Initialize SIP after successful authentication.
+Future<void> initializeSip() async {
+  try {
+    final config = await SipConfigService.fetchConfig();
+    if (config != null) {
+      await SipService().initialize(config);
+      debugPrint('SIP initialized successfully');
+    } else {
+      debugPrint('SIP config not available, skipping SIP initialization');
+    }
+  } catch (e) {
+    debugPrint('Failed to initialize SIP: $e');
+  }
 }
 
 @pragma("vm:entry-point")
@@ -70,19 +86,7 @@ class _MyAppState extends State<MyApp> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _requestPermissions();
       await _checkForStoredThreat();
-      await requestEnable();
     });
-  }
-
-  static const _channel = MethodChannel('call_screening_permission');
-
-  static Future<void> requestEnable() async {
-    if (!Platform.isAndroid) return;
-    try {
-      await _channel.invokeMethod('request_call_screening');
-    } catch (e) {
-      print('Failed to request call screening: $e');
-    }
   }
 
   Future<void> _requestPermissions() async {
@@ -174,6 +178,11 @@ class _AuthGateState extends State<_AuthGate> {
     final loggedIn = await AuthService.isLoggedIn();
 
     if (!mounted) return;
+
+    // Initialize SIP if user is logged in
+    if (loggedIn) {
+      initializeSip();
+    }
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(

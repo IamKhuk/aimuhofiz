@@ -56,6 +56,15 @@ class CallHistoryRecord {
       reason: warningMessage,
       timestamp: createdAt,
       reported: false,
+      durationSeconds: durationSeconds,
+      callDirection: _inferCallDirection(),
+      callType: analysisType == 'realtime' ? 'voip' : analysisType,
+      wasAnswered: durationSeconds > 0,
     );
+  }
+
+  String _inferCallDirection() {
+    // Server doesn't track direction yet — default to outgoing
+    return 'outgoing';
   }
 }

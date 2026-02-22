@@ -153,10 +153,14 @@ class _HistoryPageContentState extends State<HistoryPageContent> {
                     child: ThreatCardWidget(
                       detection: detection,
                       onTap: () {
+                        final bloc = context.read<CallHistoryBloc>();
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (context) => ThreatDetailsPage(
-                              detection: detection,
+                            builder: (_) => BlocProvider.value(
+                              value: bloc,
+                              child: ThreatDetailsPage(
+                                detection: detection,
+                              ),
                             ),
                           ),
                         );

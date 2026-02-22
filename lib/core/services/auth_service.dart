@@ -1,6 +1,10 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'sip_config_service.dart';
+import 'sip_service.dart';
 
 class AuthService {
   static const String _baseUrl = 'https://abulqosim0227.jprq.live';
@@ -25,6 +29,12 @@ class AuthService {
           body['refresh_token'] as String,
           username,
         );
+
+        // Provision SIP account for new user
+        SipConfigService.provisionSipAccount().then((success) {
+          debugPrint('SIP provisioning: ${success ? "success" : "failed"}');
+        });
+
         return null;
       }
 
@@ -105,12 +115,19 @@ class AuthService {
     return prefs.getString(_usernameKey);
   }
 
-  /// Log out — clear all stored tokens.
+  /// Log out — clear all stored tokens and SIP config.
   static Future<void> logout() async {
+    // Unregister SIP before clearing credentials
+    try {
+      final SipService sipService = SipService();
+      sipService.unregister();
+    } catch (_) {}
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_accessTokenKey);
     await prefs.remove(_refreshTokenKey);
     await prefs.remove(_usernameKey);
+    await SipConfigService.clearCache();
   }
 
   static Future<void> _saveTokens(
